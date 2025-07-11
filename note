@@ -1,0 +1,6 @@
+"num_samples": 300,
+  "beam_parameters": {
+    "beam_width": 80,
+    "max_depth": 300,
+    "max_paths": 500,
+    "beam_sentences": 400
