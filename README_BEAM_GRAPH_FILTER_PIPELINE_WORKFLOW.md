@@ -118,6 +118,35 @@ Nếu Beam Search ra 0 câu → dùng toàn bộ câu gốc (đã tách) làm ca
 
 > File nguồn: `advanced_data_filtering.py`. Bạn có thể chỉnh *weights* tuỳ nhu cầu.
 
+### 3.6.2 Lọc **leftover_sentences** (ngoài Beam)
+Từ v1.1, script sẽ:
+1. So sánh danh sách câu gốc (`raw_sentences`) với `candidate_sentences`.
+2. Những câu **không xuất hiện** trong candidate → `leftover_sentences`.
+3. Chạy `AdvancedDataFilter` **một lần nữa** cho nhóm này.
+4. Gộp kết quả `extra` vào `final_sentences`, tránh trùng lặp.
+
+→ Đầu ra cuối cùng = câu qua Beam + câu ngoài Beam nhưng đủ điểm relevance.
+
+---
+
+## 7. Chạy thử nhanh
+```bash
+python beam_graph_filter_pipeline.py \
+  --input raw_test.json \
+  --output_dir demo_output \
+  --beam_width 80 \        # theo config benchmark
+  --max_depth 300 \        # path dài hơn, phủ rộng hơn
+  --max_paths 500 \        # đủ nhiều path
+  --beam_sentences 400 \   # lấy 400 câu trước khi lọc
+  --max_final_sentences 50 \
+  --min_relevance 0.15 \
+  --max_samples 5          # demo 5 sample đầu
+```
+Sau khi chạy, bạn sẽ thấy:
+* `demo_output/*_simple.json` – danh sách evidence (đã gộp leftover).
+* `demo_output/*_detailed.json` – điểm số & metadata.
+* `demo_output/*_stats.json` – thống kê tổng.
+
 ### 3.7 Collect & Append
 * Tạo `simple_result` (context, claim, evidence list).
 * Tạo `detailed_result` (thêm điểm số + thống kê beam).
