@@ -3,16 +3,21 @@
 🚀 BEAM GRAPH FILTER PIPELINE
 =============================
 
-Pipeline mới để:
-1. Tiền xử lý context (xoá xuống dòng, chuẩn hoá khoảng trắng, bỏ dấu cách trước dấu câu).
-2. Cắt câu bằng regex.
-3. Dùng VnCoreNLP để tách từ, POS, dependency.
-4. Xây TextGraph, chạy Beam Search để lấy tập câu liên quan.
-5. Lọc lại tập câu bằng AdvancedDataFilter(use_sbert=False, use_contradiction_detection=False, use_nli=False).
+Main steps:
+1. Pre-process context (remove line breaks, normalize whitespaces, trim spaces before punctuation).
+2. Split context into sentences via regex.
+3. Annotate with VnCoreNLP (tokenize, POS, NER, dependency).
+4. Build a TextGraph and run Beam Search to collect candidate sentences.
+5. Re-filter the sentences with **AdvancedDataFilter** (default: no SBERT/NLI/contradiction detection).
 
-Usage:
-    python beam_graph_filter_pipeline.py --input raw_test.json --output_dir advanced_filtering_output \
-           --min_relevance 0.15 --beam_width 20 --max_depth 40
+Usage example:
+
+```bash
+python beam_graph_filter_pipeline.py \
+   --input raw_test.json \
+   --output_dir advanced_filtering_output \
+   --min_relevance 0.15 --beam_width 20 --max_depth 40
+```
 
 Author: AI Assistant & NguyenNha
 Date: 2025-07-12
@@ -37,11 +42,11 @@ from mint.text_graph import TextGraph
 from advanced_data_filtering import AdvancedDataFilter
 
 ###############################################################################
-# 🛠️  TIỆN ÍCH TIỀN XỬ LÝ
+# 🛠️  PRE-PROCESSING UTILITIES
 ###############################################################################
 
 def clean_text(text: str) -> str:
-    """Loại bỏ xuống dòng, chuẩn hoá khoảng trắng và xoá khoảng trắng trước dấu câu"""
+    """Remove line breaks, normalize whitespaces and trim spaces before punctuation."""
     if not text:
         return ""
     text = text.replace("\n", " ")
@@ -56,18 +61,18 @@ def clean_text(text: str) -> str:
 
 
 def split_sentences(text: str) -> List[str]:
-    """Cắt câu đơn giản bằng regex: sau . ! ? và khoảng trắng"""
+    """Simple sentence splitter using regex: break after . ! ? followed by whitespace."""
     if not text:
         return []
     raw = re.split(r"(?<=[.!?])\s+", text)
     return [s.strip() for s in raw if s.strip()]
 
 ###############################################################################
-# 🛠️  EXTRACT SENTENCES TỪ BEAM SEARCH PATHS
+# 🛠️  EXTRACT SENTENCES FROM BEAM SEARCH PATHS
 ###############################################################################
 
 def extract_sentences_from_paths(paths, text_graph: TextGraph, top_n: int | None = 30) -> List[Dict]:
-    """Trích xuất sentences duy nhất từ các BeamSearch Path, kèm score cao nhất"""
+    """Extract unique sentences from BeamSearch paths together with their highest score."""
     if not paths:
         return []
 
@@ -84,28 +89,28 @@ def extract_sentences_from_paths(paths, text_graph: TextGraph, top_n: int | None
                 if prev is None or path_score > prev:
                     sentence_best_score[sent_text] = path_score
 
-    # Sắp xếp giảm dần theo score
+    # Sort descending by score
     sorted_sentences = sorted(sentence_best_score.items(), key=lambda x: x[1], reverse=True)
     if top_n is None:
         return [{"sentence": s, "score": sc} for s, sc in sorted_sentences]
     return [{"sentence": s, "score": sc} for s, sc in sorted_sentences[:top_n]]
 
 ###############################################################################
-# 🚀 XỬ LÝ MỘT SAMPLE
+# 🚀 PROCESS A SINGLE SAMPLE
 ###############################################################################
 
 def process_sample(sample: Dict, model, filter_sys: AdvancedDataFilter, min_relevance: float,
                    beam_width: int, max_depth: int, max_paths: int,
                    max_final_sentences: int = 30, beam_sentences: int = 50):
-    """Process một sample, trả về (raw_count, beam_count, final_count)"""
+    """Process one sample and return stats (raw_count, beam_count, final_count)."""
     context_raw = sample.get("context", "")
     claim = sample.get("claim", "")
 
-    # 1️⃣ Tiền xử lý và cắt câu (cho debug / fallback)
+    # 1️⃣ Pre-processing & sentence split (debug / fallback)
     context_clean = clean_text(context_raw)
     raw_sentences = split_sentences(context_clean)
 
-    # 2️⃣ VnCoreNLP annotate
+    # 2️⃣ VnCoreNLP annotation
     context_tokens = model.annotate_text(context_clean)
     claim_tokens = model.annotate_text(claim)
 
@@ -113,15 +118,19 @@ def process_sample(sample: Dict, model, filter_sys: AdvancedDataFilter, min_rele
     tg = TextGraph()
     tg.build_from_vncorenlp_output(context_tokens, claim, claim_tokens)
 
-    # 4️⃣ Beam Search lấy path -> sentences
+    # 4️⃣ Beam Search to collect sentence paths
     paths = tg.beam_search_paths(beam_width=beam_width, max_depth=max_depth, max_paths=max_paths)
     candidate_sentences = extract_sentences_from_paths(paths, tg, top_n=beam_sentences)
 
-    # Fallback nếu beam không ra câu nào
+    # Fallback when beam search returns no sentence
     if not candidate_sentences:
         candidate_sentences = [{"sentence": s} for s in raw_sentences]
 
-    # 5️⃣ AdvancedDataFilter (luôn bật – log bị ẩn để gọn console)
+    # 4.5️⃣ Build a set of candidate texts to compute leftovers
+    cand_text_set = {d["sentence"] for d in candidate_sentences}
+    leftover_sentences = [{"sentence": s} for s in raw_sentences if s not in cand_text_set]
+
+    # 5️⃣ Run AdvancedDataFilter on candidate sentences
     silent_buf = io.StringIO()
     with contextlib.redirect_stdout(silent_buf):
         results = filter_sys.multi_stage_filtering_pipeline(
@@ -132,9 +141,25 @@ def process_sample(sample: Dict, model, filter_sys: AdvancedDataFilter, min_rele
         )
     final_sentences = results["filtered_sentences"]
 
+    # 5.5️⃣ If leftovers exist → filter them and merge results
+    if leftover_sentences:
+        with contextlib.redirect_stdout(silent_buf):
+            left_results = filter_sys.multi_stage_filtering_pipeline(
+                sentences=leftover_sentences,
+                claim_text=claim,
+                min_relevance_score=min_relevance,
+                max_final_sentences=max_final_sentences
+            )
+        extra = left_results["filtered_sentences"]
+        exists = {d["sentence"] for d in final_sentences}
+        for d in extra:
+            if d["sentence"] not in exists:
+                final_sentences.append(d)
+                exists.add(d["sentence"])
+
     sample["filtered_evidence"] = [d["sentence"] for d in final_sentences]
 
-    # --- Chuẩn hoá kết quả giống process_multi_hop_multi_beam_search ---
+    # --- Normalize output to match process_multi_hop_multi_beam_search format ---
     simple_result = {
         **{k: sample.get(k) for k in ("context", "claim", "evidence", "label") if k in sample},
         "multi_level_evidence": [d["sentence"] for d in final_sentences]
@@ -153,7 +178,7 @@ def process_sample(sample: Dict, model, filter_sys: AdvancedDataFilter, min_rele
     return simple_result, detailed_result, len(raw_sentences), len(candidate_sentences), len(final_sentences)
 
 ###############################################################################
-# 🏁 MAIN
+# 🏁 MAIN ENTRY
 ###############################################################################
 
 def main():
@@ -174,7 +199,7 @@ def main():
                     help="Số câu tối đa lấy từ Beam Search trước khi lọc")
     args = parser.parse_args()
 
-    # 👉 luôn dùng đường dẫn tuyệt đối cho output_dir
+    # 👉 Always convert output_dir to absolute path
     args.output_dir = os.path.abspath(args.output_dir)
     os.makedirs(args.output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -188,7 +213,7 @@ def main():
     detailed_file = output_file.replace(".json", "_detailed.json")
     stats_file    = output_file.replace(".json", "_stats.json")
 
-    # 🔐 bảo đảm thư mục đích tồn tại và reset file cũ
+    # 🔐 Ensure destination directory exists & remove previous files
     for fp in (simple_file, detailed_file, stats_file):
         os.makedirs(os.path.dirname(fp), exist_ok=True)
     for fp in (simple_file, detailed_file):
@@ -199,7 +224,7 @@ def main():
     with open(args.input, "r", encoding="utf-8") as f:
         samples = json.load(f)
 
-    # Áp dụng max_samples nếu có
+    # Apply max_samples slicing if requested
     if args.max_samples is not None and args.max_samples < len(samples):
         samples = samples[:args.max_samples]
         print(f"⚠️  Chỉ xử lý {len(samples)} sample đầu tiên theo --max_samples={args.max_samples}")
@@ -211,7 +236,7 @@ def main():
     print("🔧 Loading VnCoreNLP model ...")
     model = py_vncorenlp.VnCoreNLP(annotators=["wseg", "pos", "ner", "parse"], save_dir=VNCORENLP_DIR)
 
-    # Advanced filter (không SBERT, không NLI, không contradiction detection)
+    # Advanced filter (SBERT/NLI/contradiction detection disabled by default)
     filter_sys = AdvancedDataFilter(use_sbert=False, use_contradiction_detection=False, use_nli=False)
 
     total_raw = total_beam = total_final = 0
@@ -232,14 +257,14 @@ def main():
         if (idx + 1) % 50 == 0:
             print(f"  -> {idx + 1} samples processed ...")
 
-        # 👉 Bỏ ghi từng dòng JSONL để quay lại ghi một lần cuối – giữ bộ nhớ ở mức chấp nhận được
+        # 👉 Skip per-line JSONL writing; we dump once at the end to save memory
 
-    # 📝 Ghi danh sách output (định dạng JSON array)
+    # 📝 Dump output lists (JSON array)
     with open(simple_file, "w", encoding="utf-8") as f:
         json.dump(simple_outputs, f, ensure_ascii=False, indent=2)
     with open(detailed_file, "w", encoding="utf-8") as f:
         json.dump(detailed_outputs, f, ensure_ascii=False, indent=2)
-    # --- Ghi file thống kê tổng ---
+    # --- Dump global statistics ---
     run_stats = {
         "total_context_sentences": total_raw,
         "total_beam_sentences":    total_beam,
@@ -255,10 +280,10 @@ def main():
     with open(stats_file, "w", encoding="utf-8") as f:
         json.dump(run_stats, f, ensure_ascii=False, indent=2)
 
-    print("\n================= TỔNG KẾT =================")
-    print(f"Tổng câu sau tách: {total_raw}")
-    print(f"Sau Beam Search:   {total_beam}")
-    print(f"Sau Lọc nâng cao:  {total_final}")
+    print("\n================= SUMMARY =================")
+    print(f"Total sentences after split: {total_raw}")
+    print(f"After Beam Search:           {total_beam}")
+    print(f"After Advanced Filtering:    {total_final}")
     print("===========================================")
 
     print(f"✅ Done! Output saved to:\n   • {simple_file}\n   • {detailed_file}\n   • {stats_file}")
