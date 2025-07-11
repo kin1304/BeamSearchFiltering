@@ -2,3 +2,5 @@ vncorenlp/
 *.xz
 *.jar
 
+.env
+.env
