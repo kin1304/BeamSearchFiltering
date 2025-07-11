@@ -3,7 +3,7 @@
 🔍 ADVANCED DATA FILTERING SYSTEM
 ==================================
 
-Hệ thống lọc dữ liệu nâng cao để tăng độ chính xác classification:
+Advanced data filtering system to improve classification accuracy:
 
 1. Semantic Relevance Filtering
 2. Quality-Based Filtering  
@@ -50,7 +50,7 @@ except Exception as _e:
 
 class AdvancedDataFilter:
     """
-    🔍 Advanced Data Filtering System với multiple filtering strategies
+    🔍 Advanced Data Filtering System with multiple filtering strategies
     """
     
     def __init__(self, use_sbert=True, use_contradiction_detection=True, use_nli=True):
@@ -128,7 +128,7 @@ class AdvancedDataFilter:
                                      max_final_sentences: int = 30,
                                      min_entity_keep: int = 5) -> Dict:
         """
-        🚀 Multi-Stage Filtering Pipeline với comprehensive filtering
+        🚀 Multi-Stage Filtering Pipeline with comprehensive filtering
         """
         pipeline_results = {
             'input_count': len(sentences),
@@ -292,7 +292,7 @@ class AdvancedDataFilter:
             if not sentence_text:
                 continue
 
-            # Nếu có subject_keywords, yêu cầu sentence chứa ít nhất một keyword
+            # If subject_keywords provided, require sentence to contain at least one keyword
             if subject_keywords:
                 lower_sentence = sentence_text.lower()
                 if not any(kw.lower() in lower_sentence for kw in subject_keywords):
@@ -308,12 +308,12 @@ class AdvancedDataFilter:
             if relevance_score >= min_relevance_score:
                 relevance_filtered.append(sentence_data)
 
-        # 🔄 Fallback: nếu không giữ được câu nào (thường khi SBERT tắt),
-        # tự động lấy top  max_final_sentences  câu có relevance cao nhất nhằm tránh pipeline rỗng.
+        # 🔄 Fallback: if no sentences kept (usually when SBERT is disabled),
+        # automatically take top max_final_sentences sentences with highest relevance to avoid empty pipeline.
         if not relevance_filtered:
             print("⚠️  No sentences passed relevance threshold – applying fallback top-K selection")
             sorted_by_rel = sorted(sentences, key=lambda x: x.get('relevance_score', 0), reverse=True)
-            relevance_filtered = sorted_by_rel[:max(len(sorted_by_rel)//2, 5)]  # giữ ít nhất 5 hoặc 50% đầu
+            relevance_filtered = sorted_by_rel[:max(len(sorted_by_rel)//2, 5)]  # keep at least 5 or top 50%
 
         return relevance_filtered
 
@@ -343,7 +343,7 @@ class AdvancedDataFilter:
             if entity_score >= min_entity_score:
                 entity_filtered.append(sentence_data)
         
-        # Nếu không còn câu nào sau khi lọc entity → giữ lại input để tránh pipeline trống
+        # If no sentences remain after entity filtering → keep input to avoid empty pipeline
         if not entity_filtered or len(entity_filtered) < min_entity_keep:
             # Keep previous list if too few sentences
             print(f"⚠️  Entity filtering kept {len(entity_filtered)} sentences (<{min_entity_keep}) – relaxing filter")
@@ -357,17 +357,17 @@ class AdvancedDataFilter:
     def _stage4_contradiction_detection(self, sentences: List[Dict], claim_text: str, delta: float = 0.1, suppress_log: bool = False) -> List[Dict]:
         """
         ⚠️ Stage 4: SBERT-based Stance Detection
-        Giữ lại chỉ câu SUPPORT / REFUTE.
-        Phương pháp:
-        1. Tính embedding SBERT cho claim (v_c) và phiên bản phủ định đơn giản ("không " + claim) (v_neg).
-        2. Với mỗi câu s, tính cosine(v_c , s) và cosine(v_neg , s).
+        Keep only SUPPORT / REFUTE sentences.
+        Method:
+        1. Calculate SBERT embeddings for claim (v_c) and simple negation ("không " + claim) (v_neg).
+        2. For each sentence s, compute cosine(v_c, s) and cosine(v_neg, s).
         3. diff = sim_claim - sim_neg
            • diff >  delta → SUPPORT
            • diff < -delta → REFUTE
-           • |diff| ≤ delta → NEI (loại bỏ)
-        Nếu SBERT không có, fallback về heuristic contradiction_score cũ.
+           • |diff| ≤ delta → NEI (discard)
+        If SBERT unavailable, fallback to heuristic contradiction_score.
         """
-        # Nếu có mô hình NLI, ưu tiên sử dụng
+        # If NLI model available, prioritize its use
         if hasattr(self, 'use_nli') and self.use_nli and self.nli_pipeline:
             filtered = []
             for sentence_data in sentences:
@@ -393,12 +393,12 @@ class AdvancedDataFilter:
             else:
                 return filtered
 
-        # Nếu SBERT khả dụng, dùng phương pháp embedding
+        # If SBERT available, use embedding method
         if self.use_sbert and self.sbert_model:
             claim_embedding = self.sbert_model.encode([claim_text])[0]
             neg_claim_text = "không " + claim_text
             neg_embedding = self.sbert_model.encode([neg_claim_text])[0]
-            # normalise
+            # normalize
             claim_emb_norm = claim_embedding / np.linalg.norm(claim_embedding)
             neg_emb_norm = neg_embedding / np.linalg.norm(neg_embedding)
 
@@ -425,7 +425,7 @@ class AdvancedDataFilter:
                 # else neutral skip
 
             if not filtered:
-                # Thử hạ ngưỡng delta xuống 0.05
+                # Try lowering delta threshold to 0.05
                 delta_low = 0.05
                 for sentence_data in sentences:
                     sentence_text = sentence_data.get('sentence', '')
@@ -445,7 +445,7 @@ class AdvancedDataFilter:
                         sentence_data['stance_score'] = -diff
                         filtered.append(sentence_data)
 
-            # Nếu vẫn trống, chọn top 1 support & refute theo diff lớn nhất để tránh mất stance
+            # If still empty, select top 1 support & refute by highest diff to avoid losing stance
             if not filtered:
                 scored = []
                 for sentence_data in sentences:
@@ -476,7 +476,7 @@ class AdvancedDataFilter:
                 return sentences
             return filtered
 
-        # Fallback heuristic nếu không có SBERT
+        # Fallback heuristic if SBERT unavailable
         if not suppress_log:
             print("⏭️  SBERT unavailable – using heuristic contradiction detection")
         contradiction_filtered = []
@@ -852,7 +852,7 @@ def integrate_advanced_filtering_with_existing_pipeline(processor, text_graph, c
                                                       sentences, entities=None, 
                                                       max_final_sentences=30):
     """
-    🔗 Integrate Advanced Filtering với existing pipeline
+    🔗 Integrate Advanced Filtering with existing pipeline
     """
     # Initialize advanced filter
     advanced_filter = AdvancedDataFilter(

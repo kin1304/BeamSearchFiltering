@@ -3,7 +3,7 @@
 
 """
 MINT TextGraph - Beam Search Path Finding
-Tìm đường đi từ claim đến sentence nodes bằng Beam Search
+Find paths from claim to sentence nodes using Beam Search
 """
 
 import json
@@ -18,29 +18,29 @@ import networkx as nx
 
 
 class Path:
-    """Đại diện cho một đường đi trong đồ thị"""
+    """Represents a path in the graph"""
     
     def __init__(self, nodes: List[str], edges: Optional[List[Tuple[str, str, str]]] = None, score: float = 0.0):
-        self.nodes = nodes  # Danh sách node IDs
-        self.edges = edges or []  # Danh sách (from_node, to_node, relation)
-        self.score = score  # Điểm đánh giá path
-        self.claim_words = set()  # Words trong claim để so sánh
-        self.word_matches = set()  # ✅ THÊM: Set of matched words
-        self.path_words = set()   # Từ trong path
-        self.entities_visited = set()  # Entities đã đi qua
+        self.nodes = nodes  # List of node IDs
+        self.edges = edges or []  # List of (from_node, to_node, relation)
+        self.score = score  # Path evaluation score
+        self.claim_words = set()  # Words in claim for comparison
+        self.word_matches = set()  # ✅ ADDED: Set of matched words
+        self.path_words = set()   # Words in path
+        self.entities_visited = set()  # Entities visited
         
     def __lt__(self, other):
-        """So sánh để sort paths theo score"""
+        """Compare to sort paths by score"""
         return self.score < other.score
         
     def add_node(self, node_id: str, edge_info: Optional[Tuple[str, str, str]] = None):
-        """Thêm node vào path"""
+        """Add node to path"""
         self.nodes.append(node_id)
         if edge_info:
             self.edges.append(edge_info)
             
     def copy(self):
-        """Tạo bản copy của path"""
+        """Create a copy of the path"""
         new_path = Path(self.nodes.copy(), self.edges.copy(), self.score)
         new_path.claim_words = self.claim_words.copy()
         new_path.word_matches = self.word_matches.copy()
@@ -49,15 +49,15 @@ class Path:
         return new_path
         
     def get_current_node(self):
-        """Lấy node hiện tại (cuối path)"""
+        """Get current node (end of path)"""
         return self.nodes[-1] if self.nodes else None
         
     def contains_node(self, node_id: str):
-        """Kiểm tra path có chứa node này không"""
+        """Check if path contains this node"""
         return node_id in self.nodes
         
     def to_dict(self):
-        """Convert path thành dictionary để export"""
+        """Convert path to dictionary for export"""
         return {
             'nodes': self.nodes,
             'edges': self.edges,
@@ -70,7 +70,7 @@ class Path:
         }
         
     def _get_path_summary(self):
-        """Tạo summary ngắn gọn của path"""
+        """Create a brief summary of the path"""
         node_types = []
         for node in self.nodes:
             if node.startswith('claim'):
@@ -87,23 +87,23 @@ class Path:
 
 
 class BeamSearchPathFinder:
-    """Beam Search để tìm đường đi từ claim đến sentence nodes"""
+    """Beam Search to find paths from claim to sentence nodes"""
     
     def __init__(self, text_graph, beam_width: int = 25, max_depth: int = 30, allow_skip_edge: bool = False):
         self.graph = text_graph
         self.beam_width = beam_width
         self.max_depth = max_depth
-        # Cho phép "nhảy" qua một nút trung gian (2-hop) nếu cần mở rộng đa dạng
+        # Allow "jumping" over an intermediate node (2-hop) if needed to expand diversity
         self.allow_skip_edge = allow_skip_edge
-        self.claim_words = set()  # Words trong claim
+        self.claim_words = set()  # Words in claim
         
-        # Scoring weights - ✅ CẢI THIỆN WEIGHTS
-        self.word_match_weight = 5.0        # Tăng từ 3.0 lên 5.0
-        self.semantic_match_weight = 3.0    # ✅ MỚI: Semantic similarity
-        self.entity_bonus = 2.5             # Tăng từ 2.0 lên 2.5
-        self.length_penalty = 0.05          # Giảm từ 0.1 xuống 0.05
+        # Scoring weights - ✅ IMPROVED WEIGHTS
+        self.word_match_weight = 5.0        # Increased from 3.0 to 5.0
+        self.semantic_match_weight = 3.0    # ✅ NEW: Semantic similarity
+        self.entity_bonus = 2.5             # Increased from 2.0 to 2.5
+        self.length_penalty = 0.05          # Decreased from 0.1 to 0.05
         self.sentence_bonus = 4.0           
-        self.fuzzy_match_weight = 2.0       # ✅ MỚI: Fuzzy string matching
+        self.fuzzy_match_weight = 2.0       # ✅ NEW: Fuzzy string matching
         
         # Stats
         self.paths_explored = 0
@@ -113,11 +113,11 @@ class BeamSearchPathFinder:
         self.early_stop_on_sentence = True
         
     def extract_claim_words(self):
-        """Trích xuất tất cả từ trong claim để so sánh"""
+        """Extract all words in claim for comparison"""
         claim_words = set()
         
         if self.graph.claim_node:
-            # Lấy tất cả word nodes connected đến claim
+            # Get all word nodes connected to claim
             for neighbor in self.graph.graph.neighbors(self.graph.claim_node):
                 node_data = self.graph.graph.nodes[neighbor]
                 if node_data.get('type') == 'word':
@@ -128,8 +128,8 @@ class BeamSearchPathFinder:
         
     def _calculate_semantic_similarity(self, claim_words, path_words):
         """
-        ✅ MỚI: Tính semantic similarity giữa claim và path words
-        Sử dụng Jaccard similarity và word overlap
+        ✅ NEW: Calculate semantic similarity between claim and path words
+        Using Jaccard similarity and word overlap
         """
         if not claim_words or not path_words:
             return 0.0
@@ -148,7 +148,7 @@ class BeamSearchPathFinder:
         
     def _calculate_fuzzy_similarity(self, claim_text, sentence_text):
         """
-        ✅ MỚI: Tính fuzzy string similarity
+        ✅ NEW: Calculate fuzzy string similarity
         """
         if not claim_text or not sentence_text:
             return 0.0
@@ -162,12 +162,12 @@ class BeamSearchPathFinder:
         return similarity
         
     def score_path(self, path: Path) -> float:
-        """✅ CẢI THIỆN: Tính điểm cho một path với nhiều metrics hơn"""
+        """✅ IMPROVED: Calculate score for a path with more metrics"""
         
         if not path.nodes:
             return 0.0
             
-        # Lấy claim text để so sánh
+        # Get claim text for comparison
         claim_text = ""
         claim_words = set()
         
@@ -181,7 +181,7 @@ class BeamSearchPathFinder:
         # Base score
         score = 0.0
         
-        # 1. ✅ CẢI THIỆN: Enhanced Word matching score
+        # 1. ✅ IMPROVED: Enhanced Word matching score
         path_words = set()
         sentence_texts = []
         
@@ -203,38 +203,38 @@ class BeamSearchPathFinder:
             score += word_match_ratio * self.word_match_weight
             path.word_matches = word_matches
             
-            # 2. ✅ MỚI: Semantic similarity
+            # 2. ✅ NEW: Semantic similarity
             semantic_score = self._calculate_semantic_similarity(claim_words, path_words)
             score += semantic_score * self.semantic_match_weight
             
-        # 3. ✅ MỚI: Fuzzy matching với sentences + Claim entity boost
+        # 3. ✅ NEW: Fuzzy matching with sentences + Claim entity boost
         if claim_text and sentence_texts:
             max_fuzzy_score = 0.0
             claim_entity_boost = 0.0
             
-            # Lấy claim entities để boost scoring
+            # Get claim entities to boost scoring
             claim_entities = self.graph.get_claim_entities() if hasattr(self.graph, 'get_claim_entities') else set()
             
             for sentence_text in sentence_texts:
                 fuzzy_score = self._calculate_fuzzy_similarity(claim_text, sentence_text)
                 
-                # ✅ MỚI: Boost cho sentences chứa claim entities
+                # ✅ NEW: Boost for sentences containing claim entities
                 entity_boost = 0.0
                 if claim_entities:
                     sentence_lower = sentence_text.lower()
                     claim_entity_matches = sum(1 for entity in claim_entities if entity.lower() in sentence_lower)
-                    entity_boost = (claim_entity_matches / len(claim_entities)) * 1.0  # Boost tối đa 1.0
+                    entity_boost = (claim_entity_matches / len(claim_entities)) * 1.0  # Maximum boost 1.0
                 
                 combined_score = fuzzy_score + entity_boost
                 max_fuzzy_score = max(max_fuzzy_score, combined_score)
                 claim_entity_boost = max(claim_entity_boost, entity_boost)
                 
             score += max_fuzzy_score * self.fuzzy_match_weight
-            # Thêm bonus riêng cho claim entities
+            # Add separate bonus for claim entities
             if claim_entity_boost > 0:
-                score += claim_entity_boost * 2.0  # Double weight cho claim entity bonus
+                score += claim_entity_boost * 2.0  # Double weight for claim entity bonus
             
-        # 4. ✅ CẢI THIỆN: Entity bonus với trọng số cao hơn
+        # 4. ✅ IMPROVED: Entity bonus with higher weight
         entity_count = 0
         for node in path.nodes:
             node_data = self.graph.graph.nodes[node]
@@ -243,40 +243,40 @@ class BeamSearchPathFinder:
                 
         score += entity_count * self.entity_bonus
         
-        # 5. ✅ CẢI THIỆN: Giảm length penalty
+        # 5. ✅ IMPROVED: Reduce length penalty
         score -= len(path.nodes) * self.length_penalty
         
-        # 6. ✅ THÊM: Sentence relevance bonus
+        # 6. ✅ ADDED: Sentence relevance bonus
         sentence_count = sum(1 for node in path.nodes 
                            if self.graph.graph.nodes[node].get('type') == 'sentence')
         if sentence_count > 0:
-            score += sentence_count * 1.5  # Bonus cho mỗi sentence trong path
+            score += sentence_count * 1.5  # Bonus for each sentence in the path
             
         return score
         
-    def beam_search(self, start_node: str = None) -> List[Path]:
+    def beam_search(self, start_node: Optional[str] = None) -> List[Path]:
         """
-        Thực hiện Beam Search từ claim node đến sentence nodes
+        Perform Beam Search from claim node to sentence nodes
         
         Returns:
-            List[Path]: Danh sách các paths tốt nhất tìm được
+            List[Path]: List of the best paths found
         """
         if start_node is None:
             start_node = self.graph.claim_node
             
         if not start_node:
-            print("⚠️ Không tìm thấy claim node để bắt đầu beam search")
+            print("⚠️ No claim node found to start beam search")
             return []
             
-        # Extract claim words để scoring
+        # Extract claim words for scoring
         self.extract_claim_words()
         
         # Prepare graph data for faster lookup
         graph_data = dict(self.graph.graph.nodes(data=True))
         
-        # Initialize beam với path từ claim node
+        # Initialize beam with path from claim node
         beam = [Path([start_node])]
-        completed_paths = []  # Paths đã đến sentence nodes
+        completed_paths = []  # Paths reaching sentence nodes
         
         print(f"🎯 Starting Beam Search from {start_node}")
         print(f"📊 Beam width: {self.beam_width}, Max depth: {self.max_depth}")
@@ -290,32 +290,32 @@ class BeamSearchPathFinder:
             
             new_candidates = []
             
-            # Expand mỗi path trong beam hiện tại
+            # Expand each path in the current beam
             for path in beam:
                 current_node = path.get_current_node()
                 
-                # Lấy tất cả neighbors của current node
+                # Get all neighbors of the current node
                 neighbors = list(self.graph.graph.neighbors(current_node))
                 
                 for neighbor in neighbors:
-                    # Tránh cycle - không quay lại node đã visit
+                    # Avoid cycles - do not go back to visited nodes
                     if path.contains_node(neighbor):
                         continue
                         
-                    # Tạo path mới
+                    # Create new path
                     new_path = path.copy()
                     
-                    # Lấy edge info
+                    # Get edge info
                     edge_data = self.graph.graph.get_edge_data(current_node, neighbor)
                     relation = edge_data.get('relation', 'unknown') if edge_data else 'unknown'
-                    edge_info = (current_node, neighbor, relation)
+                    edge_info = (str(current_node), str(neighbor), str(relation))
                     
                     new_path.add_node(neighbor, edge_info)
                     
-                    # Score path mới
+                    # Score new path
                     new_path.score = self.score_path(new_path)
                     
-                    # Kiểm tra nếu đạt sentence node
+                    # Check if it reaches a sentence node
                     neighbor_data = graph_data.get(neighbor, {})
                     if neighbor_data.get('type') == 'sentence':
                         completed_paths.append(new_path)
@@ -323,9 +323,9 @@ class BeamSearchPathFinder:
                     else:
                         new_candidates.append(new_path)
                         
-            # Chọn top K candidates cho beam tiếp theo
+            # Select top K candidates for the next beam
             if new_candidates:
-                # Sort by score descending và chọn top beam_width
+                # Sort by score descending and select top beam_width
                 new_candidates.sort(key=lambda p: p.score, reverse=True)
                 beam = new_candidates[:self.beam_width]
                 
@@ -334,7 +334,7 @@ class BeamSearchPathFinder:
             else:
                 beam = []
                 
-        # Combine completed paths và sort theo score
+        # Combine completed paths and sort by score
         all_paths = completed_paths
         all_paths.sort(key=lambda p: p.score, reverse=True)
         
@@ -346,17 +346,17 @@ class BeamSearchPathFinder:
         
     def find_best_paths(self, max_paths: int = 20) -> List[Path]:
         """
-        Tìm các path tốt nhất từ claim đến sentences
+        Find the best paths from claim to sentences
         
         Args:
-            max_paths: Số lượng paths tối đa để trả về
+            max_paths: Maximum number of paths to return
             
         Returns:
-            List[Path]: Danh sách paths được sắp xếp theo score
+            List[Path]: List of paths sorted by score
         """
         start_time = time.time()
         
-        # Lấy claim nodes và sentence nodes  
+        # Get claim nodes and sentence nodes  
         claim_nodes = [node for node, data in self.graph.graph.nodes(data=True) 
                       if data.get('type') == 'claim']
         sentence_nodes = [node for node, data in self.graph.graph.nodes(data=True)
@@ -372,7 +372,7 @@ class BeamSearchPathFinder:
             
         print(f"🎯 Found {len(claim_nodes)} claim nodes, {len(sentence_nodes)} sentence nodes")
         
-        # Khởi tạo beam với paths từ mỗi claim node
+        # Initialize beam with paths from each claim node
         current_beam = []
         for claim_node in claim_nodes:
             initial_path = Path([claim_node], [], 0.0)
@@ -390,21 +390,21 @@ class BeamSearchPathFinder:
             for path in current_beam:
                 current_node = path.nodes[-1]
                 
-                # Kiểm tra xem node hiện tại có phải sentence không
+                # Check if the current node is a sentence
                 current_node_data = self.graph.graph.nodes[current_node]
                 if current_node_data.get('type') == 'sentence':
-                    # Đã đến sentence node - có thể dừng ở đây
+                    # Reached sentence node - can stop here
                     completed_paths.append(path)
                     self.sentence_paths_found += 1
-                    continue  # Không expand thêm từ sentence node
+                    continue  # Do not expand further from sentence node
                     
-                # Expand path đến các neighbors
+                # Expand path to neighbors
                 for neighbor in self.graph.graph.neighbors(current_node):
-                    # Tránh cycles
+                    # Avoid cycles
                     if neighbor in path.nodes:
                         continue
                         
-                    # Tạo path mới
+                    # Create new path
                     edge_data = self.graph.graph.get_edge_data(current_node, neighbor, {})
                     edge_label = edge_data.get('label', f"{current_node}->{neighbor}")
                     
@@ -414,22 +414,22 @@ class BeamSearchPathFinder:
                         0.0
                     )
                     
-                    # Tính điểm cho path mới
+                    # Calculate score for new path
                     new_path.score = self.score_path(new_path)
                     next_beam.append(new_path)
                     self.paths_explored += 1
                     
-            # Giữ lại top beam_width paths
+            # Keep top beam_width paths
             next_beam.sort(key=lambda p: p.score, reverse=True)
             current_beam = next_beam[:self.beam_width]
             
             if self.early_stop_on_sentence and completed_paths:
-                break  # Dừng ngay khi tìm được sentence đầu tiên
+                break  # Stop immediately when the first sentence is found
             
-        # Kết hợp completed paths và current beam
+        # Combine completed paths and current beam
         all_paths = completed_paths + current_beam
         
-        # Lọc chỉ lấy paths kết thúc tại sentence nodes
+        # Filter only paths ending at sentence nodes
         sentence_paths = []
         for path in all_paths:
             if path.nodes:
@@ -438,7 +438,7 @@ class BeamSearchPathFinder:
                 if last_node_data.get('type') == 'sentence':
                     sentence_paths.append(path)
                     
-        # Sắp xếp và lấy top paths
+        # Sort and get top paths
         sentence_paths.sort(key=lambda p: p.score, reverse=True)
         
         end_time = time.time()
@@ -449,14 +449,14 @@ class BeamSearchPathFinder:
         
     def export_paths_to_file(self, paths: List[Path], output_file: str = None) -> str:
         """
-        Export paths ra file JSON để khảo sát
+        Export paths to a JSON file for investigation
         
         Args:
-            paths: Danh sách paths cần export
-            output_file: Đường dẫn file output (nếu None sẽ tự generate)
+            paths: List of paths to export
+            output_file: Output file path (if None, will generate one)
             
         Returns:
-            str: Đường dẫn file đã lưu
+            str: Path of the file saved
         """
         if output_file is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -467,7 +467,7 @@ class BeamSearchPathFinder:
                 current_dir = os.path.dirname(current_dir)
             output_file = os.path.join(current_dir, "output", f"beam_search_paths_{timestamp}.json")
             
-        # Tạo thư mục nếu chưa có
+        # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
         # Prepare data for export
@@ -491,7 +491,7 @@ class BeamSearchPathFinder:
         for i, path in enumerate(paths):
             path_data = path.to_dict()
             
-            # Thêm thông tin chi tiết về nodes
+            # Add detailed node info
             path_data['node_details'] = []
             for node_id in path.nodes:
                 node_info = graph_data.get(node_id, {})
@@ -514,14 +514,14 @@ class BeamSearchPathFinder:
         
     def export_paths_summary(self, paths: List[Path], output_file: str = None) -> str:
         """
-        Export summary dễ đọc của paths
+        Export a readable summary of paths
         
         Args:
-            paths: Danh sách paths
-            output_file: File output (nếu None sẽ tự generate)
+            paths: List of paths
+            output_file: Output file (if None, will generate one)
             
         Returns:
-            str: Đường dẫn file đã lưu
+            str: Path of the file saved
         """
         if output_file is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -532,7 +532,7 @@ class BeamSearchPathFinder:
                 current_dir = os.path.dirname(current_dir)
             output_file = os.path.join(current_dir, "output", f"beam_search_summary_{timestamp}.txt")
             
-        # Tạo thư mục nếu chưa có
+        # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
         
         # Prepare graph data
@@ -579,28 +579,28 @@ class BeamSearchPathFinder:
         self,
         max_levels: int = 3,
         beam_width_per_level: int = 3,
-        min_new_sentences: int = 2,   # ❶ bảo đảm mỗi level có ≥ 2 câu mới
+        min_new_sentences: int = 2,   # ❶ ensure each level has ≥ 2 new sentences
         advanced_data_filter=None,
         claim_text: str = "",
         entities=None,
         filter_top_k: int = 2
     ) -> Dict[int, List[Path]]:
         """
-        Multi-level beam search: từ claim → sentences → sentences liên quan → ...
+        Multi-level beam search: from claim → sentences → related sentences → ...
         
         Args:
-            max_levels: Số levels tối đa (k)
-            beam_width_per_level: Số sentences giữ lại mỗi level
+            max_levels: Maximum number of levels (k)
+            beam_width_per_level: Number of sentences to keep per level
             
         Returns:
-            Dict[level, List[Path]]: Sentences theo từng level
+            Dict[level, List[Path]]: Sentences by level
         """
         results = {}
-        all_found_sentences = set()  # Track sentences đã tìm để tránh trùng
+        all_found_sentences = set()  # Track sentences found to avoid duplicates
         
         print(f"🎯 Starting Multi-Level Beam Search (max_levels={max_levels}, beam_width={beam_width_per_level})")
         
-        # Level 0: Beam search từ claim
+        # Level 0: Beam search from claim
         print(f"\n📍 LEVEL 0: Claim → Sentences")
         level_0_paths = self.find_best_paths(max_paths=beam_width_per_level)
         level_0_sentences = self._extract_sentence_nodes_from_paths(level_0_paths)
@@ -610,7 +610,7 @@ class BeamSearchPathFinder:
         
         print(f"   Found {len(level_0_sentences)} sentences at level 0")
         
-        # Levels 1 to k: Beam search từ sentences của level trước
+        # Levels 1 to k: Beam search from sentences of the previous level
         current_sentence_nodes = level_0_sentences
         
         for level in range(1, max_levels + 1):
@@ -622,18 +622,18 @@ class BeamSearchPathFinder:
             level_paths = []
             new_sentence_nodes = set()
             
-            # Beam search từ mỗi sentence của level trước
+            # Beam search from each sentence of the previous level
             for sentence_node in current_sentence_nodes:
                 print(f"   Expanding from sentence: {sentence_node}")
                 
-                # Beam search từ sentence này
+                # Beam search from this sentence
                 sentence_paths = self._beam_search_from_sentence(
                     sentence_node, 
                     max_paths=beam_width_per_level,
                     exclude_sentences=all_found_sentences
                 )
                 
-                # Lấy sentences mới
+                # Get new sentences
                 new_sentences = self._extract_sentence_nodes_from_paths(sentence_paths)
                 new_sentences = [s for s in new_sentences if s not in all_found_sentences]
                 
@@ -642,16 +642,16 @@ class BeamSearchPathFinder:
                 
                 print(f"     → Found {len(new_sentences)} new sentences")
             
-            # Giữ lại top beam_width_per_level sentences tốt nhất cho level này
+            # Keep top beam_width_per_level best sentences for this level
             if level_paths:
                 level_paths.sort(key=lambda p: p.score, reverse=True)
                 level_paths = level_paths[:beam_width_per_level]
 
-                # ❷ Lấy câu mới, loại trùng
+                # ❷ Get new sentences, remove duplicates
                 final_new_sentences = self._extract_sentence_nodes_from_paths(level_paths)
                 unique_new = [s for s in final_new_sentences if s not in all_found_sentences]
 
-                # 🔄 Áp dụng AdvancedDataFilter (nếu có) để chọn seed cho level kế tiếp
+                # 🔄 Apply AdvancedDataFilter (if provided) to select seeds for the next level
                 if advanced_data_filter and claim_text and unique_new:
                     try:
                         raw_sentences = [
@@ -668,7 +668,7 @@ class BeamSearchPathFinder:
                             suppress_log=True
                         )["filtered_sentences"]
 
-                        # Lấy node-ids tương ứng với các câu còn lại sau lọc
+                        # Get node-ids corresponding to the remaining sentences after filtering
                         filtered_texts = {s["sentence"] for s in filtered}
                         filtered_nodes = [
                             n for n in unique_new
@@ -676,14 +676,14 @@ class BeamSearchPathFinder:
                         ]
                         if filtered_nodes:
                             unique_new = filtered_nodes[:filter_top_k]
-                            print(f"   🔍 Advanced filter giữ {len(unique_new)} câu cho level tiếp theo")
+                            print(f"   🔍 Advanced filter kept {len(unique_new)} sentences for the next level")
                     except Exception as e:
                         print(f"⚠️  Advanced filter error (level {level}): {e}")
 
-                # ❸ Nếu chưa đủ, lấy thêm câu (không trùng) từ danh sách level_paths (đã xếp hạng)
+                # ❸ If not enough, get more sentences (not duplicates) from the level_paths list (sorted)
                 if len(unique_new) < min_new_sentences:
                     for path in level_paths:
-                        for node in path.nodes[::-1]:  # duyệt từ cuối path
+                        for node in path.nodes[::-1]:  # traverse from end of path
                             node_data = self.graph.graph.nodes[node]
                             if node_data.get('type') == 'sentence' and node not in all_found_sentences:
                                 unique_new.append(node)
@@ -692,7 +692,7 @@ class BeamSearchPathFinder:
                         if len(unique_new) >= min_new_sentences:
                             break
 
-                # ❹ Cập nhật kết quả / tracking
+                # ❹ Update results / tracking
                 results[level] = level_paths
                 all_found_sentences.update(unique_new)
                 current_sentence_nodes = unique_new
@@ -706,7 +706,7 @@ class BeamSearchPathFinder:
         return results
 
     def _extract_sentence_nodes_from_paths(self, paths: List[Path]) -> List[str]:
-        """Extract unique sentence node IDs từ paths"""
+        """Extract unique sentence node IDs from paths"""
         sentence_nodes = set()
         for path in paths:
             for node in path.nodes:
@@ -717,17 +717,17 @@ class BeamSearchPathFinder:
 
     def _beam_search_from_sentence(self, start_sentence: str, max_paths: int = 3, exclude_sentences: Set[str] = None) -> List[Path]:
         """
-        Beam search từ một sentence node để tìm sentences liên quan
+        Beam search from a sentence node to find related sentences
         
         Args:
-            start_sentence: Sentence node để bắt đầu
-            max_paths: Số paths tối đa
-            exclude_sentences: Sentences cần loại trừ (đã tìm trước đó)
+            start_sentence: Sentence node to start from
+            max_paths: Maximum number of paths
+            exclude_sentences: Sentences to exclude (already found before)
         """
         if exclude_sentences is None:
             exclude_sentences = set()
         
-        # Initialize beam từ sentence node
+        # Initialize beam from the sentence node
         beam = [Path([start_sentence])]
         completed_paths = []
         
@@ -749,7 +749,7 @@ class BeamSearchPathFinder:
                     if path.contains_node(neighbor):
                         continue
                     
-                    # Tạo path mới
+                    # Create new path
                     new_path = path.copy()
                     edge_data = self.graph.graph.get_edge_data(current_node, neighbor)
                     relation = edge_data.get('relation', 'unknown') if edge_data else 'unknown'
@@ -761,7 +761,7 @@ class BeamSearchPathFinder:
                     # Check if reached new sentence
                     neighbor_data = self.graph.graph.nodes.get(neighbor, {})
                     if (neighbor_data.get('type') == 'sentence' and 
-                        neighbor != start_sentence and  # Not same as start
+                        neighbor != start_sentence and  # Not the same as start
                         neighbor not in exclude_sentences):  # Not already found
                         completed_paths.append(new_path)
                     else:
@@ -790,25 +790,25 @@ class BeamSearchPathFinder:
         filter_top_k: int = 2
     ) -> Dict[int, List[Path]]:
         """
-        Multi-level beam search từ các start nodes cụ thể (thay vì từ claim)
+        Multi-level beam search from specific start nodes (instead of claim)
         
         Args:
-            start_nodes: List các sentence node IDs để bắt đầu
-            max_levels: Số levels tối đa
-            beam_width_per_level: Số sentences giữ lại mỗi level
+            start_nodes: List of sentence node IDs to start from
+            max_levels: Maximum number of levels
+            beam_width_per_level: Number of sentences to keep per level
             
         Returns:
-            Dict[level, List[Path]]: Sentences theo từng level
+            Dict[level, List[Path]]: Sentences by level
         """
         results = {}
         all_found_sentences = set(start_nodes)  # Include start nodes to avoid duplicates
         
         print(f"🎯 Starting Multi-Level Beam Search from {len(start_nodes)} start nodes")
         
-        # Level 0: Start từ các sentence nodes đã cho
+        # Level 0: Start from the provided sentence nodes
         print(f"\n📍 LEVEL 0: Start Nodes → Expansion")
         
-        # Tạo initial paths từ start nodes
+        # Create initial paths from start nodes
         level_0_paths = []
         for start_node in start_nodes:
             initial_path = Path([start_node])
@@ -820,7 +820,7 @@ class BeamSearchPathFinder:
         
         print(f"   Starting from {len(current_sentence_nodes)} sentences at level 0")
         
-        # Levels 1 to k: Beam search từ sentences của level trước
+        # Levels 1 to k: Beam search from sentences of the previous level
         for level in range(1, max_levels + 1):
             if not current_sentence_nodes:
                 print(f"   No sentences to expand from level {level-1}")
@@ -830,18 +830,18 @@ class BeamSearchPathFinder:
             level_paths = []
             new_sentence_nodes = set()
             
-            # Beam search từ mỗi sentence của level trước
+            # Beam search from each sentence of the previous level
             for sentence_node in current_sentence_nodes:
                 print(f"   Expanding from sentence: {sentence_node}")
                 
-                # Beam search từ sentence này
+                # Beam search from this sentence
                 sentence_paths = self._beam_search_from_sentence(
                     sentence_node, 
                     max_paths=beam_width_per_level,
                     exclude_sentences=all_found_sentences
                 )
                 
-                # Lấy sentences mới
+                # Get new sentences
                 new_sentences = self._extract_sentence_nodes_from_paths(sentence_paths)
                 new_sentences = [s for s in new_sentences if s not in all_found_sentences]
                 
@@ -850,16 +850,16 @@ class BeamSearchPathFinder:
                 
                 print(f"     → Found {len(new_sentences)} new sentences")
             
-            # Giữ lại top beam_width_per_level sentences tốt nhất cho level này
+            # Keep top beam_width_per_level best sentences for this level
             if level_paths:
                 level_paths.sort(key=lambda p: p.score, reverse=True)
                 level_paths = level_paths[:beam_width_per_level]
 
-                # Lấy câu mới, loại trùng
+                # Get new sentences, remove duplicates
                 final_new_sentences = self._extract_sentence_nodes_from_paths(level_paths)
                 unique_new = [s for s in final_new_sentences if s not in all_found_sentences]
 
-                # Áp dụng AdvancedDataFilter (nếu có) để chọn seed cho level kế tiếp
+                # Apply AdvancedDataFilter (if provided) to select seeds for the next level
                 if advanced_data_filter and claim_text and unique_new:
                     try:
                         raw_sentences = [
@@ -876,7 +876,7 @@ class BeamSearchPathFinder:
                             suppress_log=True
                         )["filtered_sentences"]
 
-                        # Lấy node-ids tương ứng với các câu còn lại sau lọc
+                        # Get node-ids corresponding to the remaining sentences after filtering
                         filtered_texts = {s["sentence"] for s in filtered}
                         filtered_nodes = [
                             n for n in unique_new
@@ -884,14 +884,14 @@ class BeamSearchPathFinder:
                         ]
                         if filtered_nodes:
                             unique_new = filtered_nodes[:filter_top_k]
-                            print(f"   🔍 Advanced filter giữ {len(unique_new)} câu cho level tiếp theo")
+                            print(f"   🔍 Advanced filter kept {len(unique_new)} sentences for the next level")
                     except Exception as e:
                         print(f"⚠️  Advanced filter error (level {level}): {e}")
 
-                # Nếu chưa đủ, lấy thêm câu (không trùng) từ danh sách level_paths
+                # If not enough, get more sentences (not duplicates) from the level_paths list
                 if len(unique_new) < min_new_sentences:
                     for path in level_paths:
-                        for node in path.nodes[::-1]:  # duyệt từ cuối path
+                        for node in path.nodes[::-1]:  # traverse from end of path
                             node_data = self.graph.graph.nodes[node]
                             if node_data.get('type') == 'sentence' and node not in all_found_sentences:
                                 unique_new.append(node)
@@ -900,7 +900,7 @@ class BeamSearchPathFinder:
                         if len(unique_new) >= min_new_sentences:
                             break
 
-                # Cập nhật kết quả / tracking
+                # Update results / tracking
                 results[level] = level_paths
                 all_found_sentences.update(unique_new)
                 current_sentence_nodes = unique_new

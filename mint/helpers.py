@@ -43,7 +43,7 @@ def detect_device():
             }
             
     except ImportError:
-        # Fallback nếu torch không có
+        # Fallback if torch is not available
         device_info = {
             'type': 'CPU',
             'name': 'Unknown (torch not available)',
@@ -57,18 +57,18 @@ def detect_device():
 def get_optimized_config_for_device(device_info, base_config):
     """Get optimized configuration based on detected device (PCA removed)"""
     if device_info['use_gpu_optimizations']:
-        # GPU optimizations - sử dụng full embeddings với FAISS
+        # GPU optimizations - use full embeddings with FAISS
         return {
             'similarity_threshold': base_config.get('similarity_threshold', 0.85),
             'top_k': base_config.get('top_k', 5),
             'use_faiss': base_config.get('use_faiss', True)
         }
     else:
-        # CPU optimizations - giảm top_k, tăng threshold, có thể tắt FAISS
+        # CPU optimizations - reduce top_k, increase threshold, may disable FAISS
         return {
             'similarity_threshold': base_config.get('cpu_similarity_threshold', 0.9),
             'top_k': base_config.get('cpu_top_k', 3),
-            'use_faiss': base_config.get('cpu_use_faiss', False)  # FAISS có thể problematic trên một số CPU
+            'use_faiss': base_config.get('cpu_use_faiss', False)  # FAISS may be problematic on some CPUs
         }
 
 def load_config():
@@ -183,18 +183,18 @@ def validate_inputs(args):
             with open(args.input_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
-            # Xử lý cả array và object đơn
+            # Handle both array and single object
             if isinstance(data, list):
                 if len(data) == 0:
                     raise ValueError("Input file contains empty array")
-                # Lấy sample đầu tiên nếu là array
+                # Take the first sample if it's an array
                 sample = data[0]
                 context = sample.get('context', '')
                 claim = sample.get('claim', '')
                 if args.verbose:
                     print(f"📋 Using first sample from {len(data)} samples in input file")
             else:
-                # Xử lý object đơn
+                # Handle single object
                 context = data.get('context', '')
                 claim = data.get('claim', '')
             
@@ -301,13 +301,13 @@ def build_complete_graph(context, claim, context_sentences, claim_sentences, arg
     # Configure parameters
     configure_textgraph_parameters(text_graph, args)
     
-    # Configure POS filtering (mặc định bật, có thể tắt bằng --disable-pos-filtering)
+    # Configure POS filtering (default enabled, can be disabled via --disable-pos-filtering)
     if getattr(args, 'disable_pos_filtering', False):
         text_graph.set_pos_filtering(enable=False)
         if args.verbose:
             print("  ⚠️ POS filtering disabled - all words will be included")
     else:
-        # POS filtering được bật mặc định, có thể tùy chỉnh tags
+        # POS filtering is enabled by default, can be customized with tags
         custom_pos_tags = None
         if hasattr(args, 'pos_tags') and args.pos_tags:
             custom_pos_tags = [tag.strip() for tag in args.pos_tags.split(',')]
@@ -470,7 +470,7 @@ def print_statistics(text_graph, verbose=False):
 
 def auto_save_graph(text_graph, path_pattern, verbose=False):
     """
-    Tự động lưu graph với timestamp và tạo thư mục nếu cần
+    Automatically save graph with timestamp and create directory if needed
     
     Args:
         text_graph: TextGraph object to save
@@ -564,40 +564,40 @@ def save_outputs(text_graph, args):
             print(f"  ✅ {output}")
 
 def process_multiple_samples(args):
-    """Xử lý tất cả samples từ file input với beam search"""
+    """Process all samples from input file with beam search"""
     import datetime
     
     if not args.input_file:
-        raise ValueError("Cần có input file để xử lý multiple samples")
+        raise ValueError("Input file is required to process multiple samples")
     
     if not os.path.exists(args.input_file):
-        raise ValueError(f"File không tồn tại: {args.input_file}")
+        raise ValueError(f"File does not exist: {args.input_file}")
     
-    # Đọc file JSON
+    # Read JSON file
     try:
         with open(args.input_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
     except json.JSONDecodeError:
-        raise ValueError(f"File JSON không hợp lệ: {args.input_file}")
+        raise ValueError(f"Invalid JSON format in {args.input_file}")
     
     if not isinstance(data, list):
-        raise ValueError("File phải chứa array của samples")
+        raise ValueError("File must contain an array of samples")
     
     if len(data) == 0:
-        raise ValueError("File không chứa samples nào")
+        raise ValueError("File does not contain any samples")
     
-    print(f"🚀 Bắt đầu xử lý {len(data)} samples với beam search...")
+    print(f"🚀 Starting to process {len(data)} samples with beam search...")
     
-    # Setup VnCoreNLP một lần
+    # Setup VnCoreNLP once
     config = load_config()
     model = setup_vncorenlp(config['vncorenlp_path'], args.verbose)
     
-    # Tạo thư mục output cho multiple samples
+    # Create output directory for multiple samples
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     output_base_dir = f"output_multiple_{timestamp}"
     os.makedirs(output_base_dir, exist_ok=True)
     
-    # Auto-detect device và áp dụng optimizations
+    # Auto-detect device and apply optimizations
     device_info = detect_device()
     apply_device_optimizations(args, device_info, args.verbose)
     
@@ -610,7 +610,7 @@ def process_multiple_samples(args):
         try:
             # Validate sample format
             if not isinstance(sample, dict):
-                raise ValueError(f"Sample {idx+1} không phải dict")
+                raise ValueError(f"Sample {idx+1} is not a dict")
             
             context = sample.get('context', '')
             claim = sample.get('claim', '')
@@ -618,19 +618,19 @@ def process_multiple_samples(args):
             evidence = sample.get('evidence', '')
             
             if not context or not claim:
-                raise ValueError(f"Sample {idx+1} thiếu context hoặc claim")
+                raise ValueError(f"Sample {idx+1} missing context or claim")
             
             # Process this sample
             context_sentences, claim_sentences = process_text_data(
                 model, context, claim, args.verbose
             )
             
-            # Build graph cho sample này
+            # Build graph for this sample
             text_graph = build_complete_graph(
                 context, claim, context_sentences, claim_sentences, args
             )
             
-            # Save outputs cho sample này
+            # Save outputs for this sample
             sample_output_dir = os.path.join(output_base_dir, f"sample_{idx+1:03d}")
             os.makedirs(sample_output_dir, exist_ok=True)
             
@@ -654,10 +654,10 @@ def process_multiple_samples(args):
                 'entities': len([n for n in text_graph.graph.nodes() if text_graph.graph.nodes[n].get('type') == 'entity']),
                 'claim': claim[:100] + "..." if len(claim) > 100 else claim,
                 'label': label,
-                'beam_search_paths': 0  # Sẽ được update nếu có beam search
+                'beam_search_paths': 0  # Will be updated if beam search is performed
             }
             
-            # Beam search paths nếu có
+            # Beam search paths if any
             if hasattr(text_graph, '_last_beam_search_results') and text_graph._last_beam_search_results:
                 sample_result['beam_search_paths'] = len(text_graph._last_beam_search_results)
                 sample_result['beam_search_files'] = getattr(text_graph, '_last_beam_search_files', [])
@@ -672,7 +672,7 @@ def process_multiple_samples(args):
             if args.verbose:
                 print(f"  ❌ Sample {idx+1} failed: {e}")
     
-    # Tạo summary report
+    # Create summary report
     summary_file = os.path.join(output_base_dir, "processing_summary.json")
     summary = {
         'total_samples': len(data),
@@ -694,11 +694,11 @@ def process_multiple_samples(args):
         json.dump(summary, f, ensure_ascii=False, indent=2)
     
     # Print final summary
-    print(f"\n🎉 HOÀN THÀNH XỬ LÝ MULTIPLE SAMPLES!")
-    print(f"📊 Tổng quan:")
-    print(f"  - Tổng samples: {len(data)}")
-    print(f"  - Thành công: {len(results)}")
-    print(f"  - Thất bại: {len(failed_samples)}")
+    print(f"\n🎉 FINISHED MULTIPLE SAMPLES PROCESSING!")
+    print(f"📊 Summary:")
+    print(f"  - Total samples: {len(data)}")
+    print(f"  - Successful: {len(results)}")
+    print(f"  - Failed: {len(failed_samples)}")
     print(f"  - Output directory: {output_base_dir}")
     print(f"  - Summary file: {summary_file}")
     
@@ -707,7 +707,7 @@ def process_multiple_samples(args):
         for failure in failed_samples[:5]:  # Show first 5 failures
             print(f"  - Sample {failure['sample_id']}: {failure['error']}")
         if len(failed_samples) > 5:
-            print(f"  ... và {len(failed_samples) - 5} samples khác")
+            print(f"  ... and {len(failed_samples) - 5} more samples")
     
     return results
 
@@ -752,14 +752,14 @@ def download_vncorenlp(target_dir="vncorenlp", verbose=False):
 
 def segment_entity_with_vncorenlp(entity, model):
     """
-    Segment entity sử dụng VnCoreNLP để match với segmented text
+    Segment entity using VnCoreNLP to match with segmented text
     
     Args:
-        entity (str): Entity text cần segment
+        entity (str): Entity text to segment
         model: VnCoreNLP model instance
         
     Returns:
-        str: Segmented entity với words nối bằng underscore
+        str: Segmented entity with words joined by underscore
     """
     try:
         result = model.annotate_text(entity)

@@ -41,7 +41,7 @@ graph TD
   D --> E[VnCoreNLP Annotation]
   E --> F[Build TextGraph]
   F --> G[Beam Search]
-  G --> H{Có câu?}
+  G --> H{sentences?}
   H -->|Yes| I[Candidate Sentences]
   H -->|No| J[Fallback Raw Sentences]
   I --> K[Advanced Data Filter]
@@ -129,24 +129,6 @@ Từ v1.1, script sẽ:
 
 ---
 
-## 7. Chạy thử nhanh
-```bash
-python beam_graph_filter_pipeline.py \
-  --input raw_test.json \
-  --output_dir demo_output \
-  --beam_width 80 \        # theo config benchmark
-  --max_depth 300 \        # path dài hơn, phủ rộng hơn
-  --max_paths 500 \        # đủ nhiều path
-  --beam_sentences 400 \   # lấy 400 câu trước khi lọc
-  --max_final_sentences 50 \
-  --min_relevance 0.15 \
-  --max_samples 5          # demo 5 sample đầu
-```
-Sau khi chạy, bạn sẽ thấy:
-* `demo_output/*_simple.json` – danh sách evidence (đã gộp leftover).
-* `demo_output/*_detailed.json` – điểm số & metadata.
-* `demo_output/*_stats.json` – thống kê tổng.
-
 ### 3.7 Collect & Append
 * Tạo `simple_result` (context, claim, evidence list).
 * Tạo `detailed_result` (thêm điểm số + thống kê beam).
@@ -184,3 +166,21 @@ jq -s '.' raw_test_beam_filtered_0.15_*.jsonl > merged_simple.json
 * Tuân thủ quy tắc commit: `feat:`, `fix:`, `docs:`, `refactor:`.
 
 MIT License © 2025 – BGFP Team 
+
+## 7. Chạy thử nhanh
+```bash
+python beam_graph_filter_pipeline.py \
+  --input raw_test.json \
+  --output_dir demo_output \
+  --beam_width 80 \        # theo config benchmark
+  --max_depth 300 \        # path dài hơn, phủ rộng hơn
+  --max_paths 500 \        # đủ nhiều path
+  --beam_sentences 400 \   # lấy 400 câu trước khi lọc
+  --max_final_sentences 50 \
+  --min_relevance 0.15 \
+  --max_samples 5          # demo 5 sample đầu
+```
+Sau khi chạy, bạn sẽ thấy:
+* `demo_output/*_simple.json` – danh sách evidence (đã gộp leftover).
+* `demo_output/*_detailed.json` – điểm số & metadata.
+* `demo_output/*_stats.json` – thống kê tổng.
