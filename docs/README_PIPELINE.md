@@ -1,4 +1,4 @@
-# 🔄 Pipeline Module Documentation
+# Pipeline Module Documentation
 
 ## Overview
 The `pipeline` module contains the main beam filter pipeline and CLI interface for the refactored project.
@@ -58,24 +58,6 @@ Runs the complete beam search and filtering pipeline.
       "filter_stats": Dict               # Filter statistics
   }
   ```
-
-**Example**:
-```python
-from src.pipeline.beam_filter_pipeline import BeamFilterPipeline
-
-# Create pipeline
-pipeline = BeamFilterPipeline()
-
-# Run pipeline
-context = "SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12."
-claim = "SAWACO thông báo tạm ngưng cung cấp nước."
-
-results = pipeline.run_pipeline(context, claim)
-
-print(f"Found {len(results['final_sentences'])} relevant sentences")
-for sentence in results['final_sentences']:
-    print(f"- {sentence['sentence']}")
-```
 
 ##### `_preprocess_text(context: str, claim: str) -> Tuple[str, str, List[str]]`
 Preprocesses input text.
@@ -145,32 +127,6 @@ python src/pipeline/cli.py [OPTIONS] CONTEXT_FILE CLAIM_FILE OUTPUT_FILE
 - `--disable-pos-filtering`: Disable POS tag filtering
 - `--help`: Show help message
 
-#### Usage Examples
-
-**Basic Usage**:
-```bash
-python src/pipeline/cli.py context.txt claim.txt output.json
-```
-
-**With Custom Parameters**:
-```bash
-python src/pipeline/cli.py \
-    --beam-width 50 \
-    --max-depth 100 \
-    --min-relevance 0.2 \
-    --max-final-sentences 20 \
-    context.txt claim.txt output.json
-```
-
-**With Advanced Filtering**:
-```bash
-python src/pipeline/cli.py \
-    --use-sbert \
-    --use-contradiction-detection \
-    --use-nli \
-    context.txt claim.txt output.json
-```
-
 ## Output Format
 
 Pipeline sẽ xuất ra **3 file output** với format tên file:
@@ -182,61 +138,13 @@ Pipeline sẽ xuất ra **3 file output** với format tên file:
 ```
 
 ### 1. Detailed Output (`*_detailed.json`)
-Chứa thông tin chi tiết về quá trình xử lý từng sample:
-```json
-[
-  {
-    "context": "Original context text",
-    "claim": "Original claim text",
-    "multi_level_evidence": [
-      {
-        "sentence": "Final sentence 1",
-        "relevance_score": 0.92,
-        "beam_score": 0.85,
-        "path": ["claim_0", "word_1", "sentence_0"]
-      }
-    ],
-    "statistics": {
-      "beam": {
-        "total_paths": 15,
-        "unique_sentences": 25
-      }
-    }
-  }
-]
-```
+Chứa thông tin chi tiết về quá trình xử lý từng sample.
 
 ### 2. Simple Output (`*_simple.json`)
-Chỉ chứa danh sách evidence sentences:
-```json
-[
-  {
-    "context": "Original context text",
-    "claim": "Original claim text",
-    "multi_level_evidence": [
-      "Final sentence 1",
-      "Final sentence 2"
-    ]
-  }
-]
-```
+Chỉ chứa danh sách evidence sentences.
 
 ### 3. Statistics Output (`*_stats.json`)
-Thống kê tổng quan về quá trình xử lý:
-```json
-{
-  "total_context_sentences": 6442,
-  "total_beam_sentences": 4933,
-  "total_final_sentences": 4933,
-  "num_samples": 300,
-  "beam_parameters": {
-    "beam_width": 80,
-    "max_depth": 300,
-    "max_paths": 500,
-    "beam_sentences": 400
-  }
-}
-```
+Thống kê tổng quan về quá trình xử lý.
 
 **Ý nghĩa:**
 - `detailed`: Phục vụ phân tích sâu, debug, kiểm tra đường đi, điểm số, v.v.
@@ -246,50 +154,6 @@ Thống kê tổng quan về quá trình xử lý:
 **Lưu ý:**
 - Tên file sẽ tự động sinh theo input, min_relevance, timestamp để dễ quản lý batch.
 - Các script, CLI, Python API đều xuất ra đúng 3 file này.
-
-## Usage in Pipeline
-
-### Python API Usage
-
-```python
-from src.pipeline.beam_filter_pipeline import BeamFilterPipeline
-
-# Create pipeline with custom config
-config = {
-    "beam_width": 50,
-    "max_depth": 100,
-    "min_relevance_score": 0.2,
-    "max_final_sentences": 20,
-    "use_sbert": True
-}
-
-pipeline = BeamFilterPipeline(config)
-
-# Run pipeline
-results = pipeline.run_pipeline(context_text, claim_text)
-
-# Access results
-final_sentences = results["final_sentences"]
-pipeline_stats = results["pipeline_stats"]
-
-print(f"Pipeline completed in {pipeline_stats['total_time']:.2f}s")
-print(f"Found {len(final_sentences)} relevant sentences")
-```
-
-### CLI Usage
-
-```bash
-# Basic usage
-python src/pipeline/cli.py input/context.txt input/claim.txt output/results.json
-
-# With verbose output
-python src/pipeline/cli.py \
-    --beam-width 60 \
-    --max-depth 150 \
-    --min-relevance 0.25 \
-    --max-final-sentences 25 \
-    input/context.txt input/claim.txt output/results.json
-```
 
 ## Dependencies
 
@@ -316,15 +180,6 @@ The pipeline includes comprehensive error handling:
 4. **Beam search errors**: Handling of search algorithm failures
 5. **Filtering errors**: Fallback when filtering system is unavailable
 
-**Example**:
-```python
-try:
-    results = pipeline.run_pipeline(context, claim)
-    print("Pipeline completed successfully")
-except Exception as e:
-    print(f"Pipeline failed: {e}")
-```
-
 ## Performance Considerations
 
 - **Text preprocessing**: Fast, minimal overhead
@@ -332,22 +187,6 @@ except Exception as e:
 - **Graph building**: Scales with number of words and sentences
 - **Beam search**: Performance depends on graph connectivity and search parameters
 - **Filtering**: Depends on filtering options and number of candidate sentences
-
-## Testing
-
-```python
-# Test pipeline initialization
-pipeline = BeamFilterPipeline()
-assert pipeline.config is not None
-
-# Test with simple data
-context = "Test context. Another sentence."
-claim = "Test claim."
-results = pipeline.run_pipeline(context, claim)
-
-assert "final_sentences" in results
-assert "pipeline_stats" in results
-```
 
 ## Configuration Options
 
@@ -366,66 +205,6 @@ config = {
     "important_pos_tags": {"N", "Np", "V", "A", "Nc", "M", "R", "P"}
 }
 ```
-
-### CLI Configuration
-```bash
-# Performance-focused configuration
-python src/pipeline/cli.py \
-    --beam-width 30 \
-    --max-depth 80 \
-    --max-paths 100 \
-    --min-relevance 0.3 \
-    --max-final-sentences 15 \
-    context.txt claim.txt output.json
-
-# Quality-focused configuration
-python src/pipeline/cli.py \
-    --beam-width 60 \
-    --max-depth 150 \
-    --max-paths 300 \
-    --min-relevance 0.1 \
-    --max-final-sentences 50 \
-    --use-sbert \
-    context.txt claim.txt output.json
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **VnCoreNLP not available**:
-   ```bash
-   # Check VnCoreNLP installation
-   ls -la vncorenlp/
-   python -c "from py_vncorenlp import py_vncorenlp; print('VnCoreNLP available')"
-   ```
-
-2. **AdvancedDataFilter not found**:
-   ```bash
-   # Check if file exists
-   ls -la advanced_data_filtering.py
-   ```
-
-3. **Memory issues**:
-   ```python
-   # Reduce parameters for large texts
-   config = {
-       "beam_width": 20,
-       "max_depth": 60,
-       "max_paths": 100,
-       "max_final_sentences": 15
-   }
-   ```
-
-4. **Slow performance**:
-   ```python
-   # Disable advanced features
-   config = {
-       "use_sbert": False,
-       "use_contradiction_detection": False,
-       "use_nli": False
-   }
-   ```
 
 ## Limitations
 

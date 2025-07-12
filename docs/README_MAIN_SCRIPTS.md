@@ -26,21 +26,21 @@ python run_pipeline.py
 =====================================
 
 📝 Input:
-Context: SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12.
-Claim: SAWACO thông báo tạm ngưng cung cấp nước.
+Context: [context text]
+Claim: [claim text]
 
 🔄 Running pipeline...
-✅ Pipeline completed in 2.34s
+✅ Pipeline completed successfully
 
 📊 Results:
-- Found 2 relevant sentences
-- Graph: 45 nodes, 89 edges
-- Beam search: 15 paths found
-- Filtering: 15 → 2 sentences
+- Found relevant sentences
+- Graph built successfully
+- Beam search completed
+- Filtering applied
 
 🎯 Final Sentences:
-1. SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
-2. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12.
+1. [relevant sentence 1]
+2. [relevant sentence 2]
 ```
 
 **Configuration**:
@@ -61,11 +61,9 @@ config = {
 
 **Sample Data**:
 ```python
-context = """SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ. 
-Các khu vực bị ảnh hưởng gồm quận 6, 8, 12. Thời gian thực hiện từ ngày 25-3 
-đến ngày 26-3. Lý do tạm ngưng là để bảo trì hệ thống cấp nước."""
+context = """[context text with multiple sentences]"""
 
-claim = "SAWACO thông báo tạm ngưng cung cấp nước."
+claim = "[claim text]"
 ```
 
 ### `example_usage.py`
@@ -144,12 +142,12 @@ for config in configs:
 # Process multiple context-claim pairs
 test_cases = [
     {
-        "context": "SAWACO thông báo tạm ngưng cung cấp nước.",
-        "claim": "SAWACO tạm ngưng cung cấp nước."
+        "context": "[context text 1]",
+        "claim": "[claim text 1]"
     },
     {
-        "context": "Apple ra mắt iPhone 15 với chip A17 Pro.",
-        "claim": "Apple ra mắt iPhone 15."
+        "context": "[context text 2]",
+        "claim": "[claim text 2]"
     }
 ]
 
@@ -166,8 +164,8 @@ for i, test_case in enumerate(test_cases, 1):
 **Using the CLI script**:
 ```bash
 # Create input files
-echo "SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ." > context.txt
-echo "SAWACO thông báo tạm ngưng cung cấp nước." > claim.txt
+echo "[context text]" > context.txt
+echo "[claim text]" > claim.txt
 
 # Run CLI
 python src/pipeline/cli.py context.txt claim.txt output.json
@@ -207,13 +205,13 @@ Context: [context text]
 Claim: [claim text]
 
 🔄 Running pipeline...
-✅ Pipeline completed in [time]s
+✅ Pipeline completed successfully
 
 📊 Results:
-- Found [N] relevant sentences
-- Graph: [nodes] nodes, [edges] edges
-- Beam search: [paths] paths found
-- Filtering: [input] → [output] sentences
+- Found relevant sentences
+- Graph built successfully
+- Beam search completed
+- Filtering applied
 
 🎯 Final Sentences:
 1. [sentence 1]
@@ -241,11 +239,11 @@ Claim: [claim text]
         }
     ],
     "pipeline_stats": {
-        "total_time": 2.34,
-        "graph_nodes": 45,
-        "graph_edges": 89,
-        "beam_paths_found": 15,
-        "sentences_filtered": 2
+        "total_time": 1.5,
+        "graph_nodes": 50,
+        "graph_edges": 100,
+        "beam_paths_found": 20,
+        "sentences_filtered": 5
     },
     "graph_stats": {
         "word_nodes": 30,

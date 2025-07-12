@@ -13,7 +13,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import py_vncorenlp
 from dotenv import load_dotenv
-from .text_graph import TextGraph
+# Import will be handled by the main module
+# from .text_graph import TextGraph
 
 def detect_device():
     """Automatically detect and configure optimal device (GPU/CPU)"""
@@ -295,6 +296,9 @@ def configure_textgraph_parameters(text_graph, args):
 
 def build_complete_graph(context, claim, context_sentences, claim_sentences, args):
     """Build complete text graph with all features"""
+    # Import TextGraph here to avoid circular imports
+    from mint.graph.text_graph import TextGraph
+    
     # Initialize TextGraph
     text_graph = TextGraph()
     
@@ -320,17 +324,17 @@ def build_complete_graph(context, claim, context_sentences, claim_sentences, arg
         print("  Building basic graph structure...")
     text_graph.build_from_vncorenlp_output(context_sentences, claim, claim_sentences)
     
-    # Entity extraction
-    if not args.disable_entities:
-        if args.verbose:
-            print("  Extracting entities with OpenAI...")
-        try:
-            entity_nodes = text_graph.extract_and_add_entities(context, context_sentences)
-            if args.verbose:
-                print(f"  ✅ Added {len(entity_nodes)} entity nodes")
-        except Exception as e:
-            if args.verbose:
-                print(f"  ⚠️ Entity extraction failed: {e}")
+    # Entity extraction (commented out - not implemented in current TextGraph)
+    # if not args.disable_entities:
+    #     if args.verbose:
+    #         print("  Extracting entities with OpenAI...")
+    #     try:
+    #         entity_nodes = text_graph.extract_and_add_entities(context, context_sentences)
+    #         if args.verbose:
+    #             print(f"  ✅ Added {len(entity_nodes)} entity nodes")
+    #     except Exception as e:
+    #         if args.verbose:
+    #             print(f"  ⚠️ Entity extraction failed: {e}")
     
     # Semantic similarity (without PCA)
     if not args.disable_semantic:

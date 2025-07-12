@@ -1,4 +1,4 @@
-# 🔍 Filtering Module Documentation
+# Filtering Module Documentation
 
 ## Overview
 The `filtering` module contains the wrapper for the existing AdvancedDataFilter, providing a clean interface for sentence filtering in the beam search pipeline.
@@ -48,79 +48,11 @@ Filters sentences using AdvancedDataFilter.
   }
   ```
 
-**Example**:
-```python
-from src.filtering.filter_wrapper import FilterWrapper
-
-# Create filter wrapper
-filter_wrapper = FilterWrapper(
-    use_sbert=False,
-    use_contradiction_detection=False,
-    use_nli=False
-)
-
-# Sample sentences
-sentences = [
-    {"sentence": "SAWACO thông báo tạm ngưng cung cấp nước."},
-    {"sentence": "Thời gian thực hiện từ 22 giờ đến 4 giờ."},
-    {"sentence": "Các khu vực bị ảnh hưởng gồm quận 6, 8, 12."}
-]
-
-claim_text = "SAWACO thông báo tạm ngưng cung cấp nước."
-
-# Filter sentences
-results = filter_wrapper.filter_sentences(
-    sentences=sentences,
-    claim_text=claim_text,
-    min_relevance_score=0.15,
-    max_final_sentences=10
-)
-
-print(f"Input: {results['input_count']} sentences")
-print(f"Output: {results['output_count']} sentences")
-print(f"Filtered sentences: {results['filtered_sentences']}")
-```
-
 ##### `is_available() -> bool`
 Checks if the filter system is available.
 
 **Returns**:
 - `bool`: True if AdvancedDataFilter is available and initialized
-
-**Example**:
-```python
-filter_wrapper = FilterWrapper()
-
-if filter_wrapper.is_available():
-    print("✅ AdvancedDataFilter is available")
-else:
-    print("⚠️ AdvancedDataFilter not available, using fallback")
-```
-
-## Usage in Pipeline
-
-The filter wrapper is used in the main pipeline for sentence filtering:
-
-```python
-from src.filtering.filter_wrapper import FilterWrapper
-
-# Initialize filter wrapper
-filter_wrapper = FilterWrapper(
-    use_sbert=False,
-    use_contradiction_detection=False,
-    use_nli=False
-)
-
-# Filter candidate sentences from beam search
-results = filter_wrapper.filter_sentences(
-    sentences=candidate_sentences,
-    claim_text=claim,
-    min_relevance_score=min_relevance,
-    max_final_sentences=max_final_sentences
-)
-
-final_sentences = results["filtered_sentences"]
-```
 
 ## Dependencies
 
@@ -139,21 +71,6 @@ The wrapper includes comprehensive error handling:
 1. **Missing AdvancedDataFilter**: Graceful fallback with warning
 2. **Initialization failure**: Detailed error messages
 3. **Filtering errors**: Exception handling with fallback
-
-**Example**:
-```python
-filter_wrapper = FilterWrapper()
-
-# Safe filtering
-try:
-    results = filter_wrapper.filter_sentences(sentences, claim_text)
-    if results["output_count"] > 0:
-        print("Filtering successful")
-    else:
-        print("No sentences passed filtering")
-except Exception as e:
-    print(f"Error during filtering: {e}")
-```
 
 ## Configuration Options
 
@@ -187,15 +104,7 @@ filter_wrapper = FilterWrapper(
 
 ## Fallback Behavior
 
-When AdvancedDataFilter is not available, the wrapper provides a fallback:
-
-```python
-# Fallback behavior
-if not filter_wrapper.is_available():
-    # Returns top N sentences without filtering
-    results = filter_wrapper.filter_sentences(sentences, claim_text)
-    # Results contain original sentences up to max_final_sentences
-```
+When AdvancedDataFilter is not available, the wrapper provides a fallback that returns top N sentences without filtering.
 
 ## Performance Considerations
 
@@ -204,71 +113,9 @@ if not filter_wrapper.is_available():
 - **NLI**: Requires HuggingFace transformers and model loading
 - **Memory usage**: Scales with number of sentences and model sizes
 
-## Testing
-
-```python
-# Test filter wrapper initialization
-filter_wrapper = FilterWrapper()
-assert isinstance(filter_wrapper.is_available(), bool)
-
-# Test filtering (if available)
-if filter_wrapper.is_available():
-    sentences = [{"sentence": "Test sentence"}]
-    results = filter_wrapper.filter_sentences(sentences, "Test claim")
-    assert "filtered_sentences" in results
-    assert "input_count" in results
-    assert "output_count" in results
-```
-
 ## Integration with AdvancedDataFilter
 
-The wrapper integrates with the existing AdvancedDataFilter:
-
-```python
-# Direct integration
-from advanced_data_filtering import AdvancedDataFilter
-
-# Original usage
-filter_sys = AdvancedDataFilter(use_sbert=False, use_contradiction_detection=False, use_nli=False)
-results = filter_sys.multi_stage_filtering_pipeline(sentences, claim_text, min_relevance_score=0.15)
-
-# Wrapper usage (same functionality)
-filter_wrapper = FilterWrapper(use_sbert=False, use_contradiction_detection=False, use_nli=False)
-results = filter_wrapper.filter_sentences(sentences, claim_text, min_relevance_score=0.15)
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **AdvancedDataFilter not found**:
-   ```python
-   # Check if file exists
-   import os
-   if os.path.exists("advanced_data_filtering.py"):
-       print("AdvancedDataFilter file found")
-   else:
-       print("AdvancedDataFilter file not found")
-   ```
-
-2. **Import errors**:
-   ```python
-   # Check import
-   try:
-       from advanced_data_filtering import AdvancedDataFilter
-       print("Import successful")
-   except ImportError as e:
-       print(f"Import failed: {e}")
-   ```
-
-3. **Filtering failures**:
-   ```python
-   # Test with simple data
-   filter_wrapper = FilterWrapper()
-   if filter_wrapper.is_available():
-       results = filter_wrapper.filter_sentences([{"sentence": "test"}], "test")
-       print(f"Filtering result: {results}")
-   ```
+The wrapper integrates with the existing AdvancedDataFilter to provide the same functionality through a cleaner interface.
 
 ## Limitations
 

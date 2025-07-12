@@ -79,14 +79,6 @@ python run_pipeline.py --input raw_test.json --min_relevance 0.15
 - **Simple**: Only list of evidence sentences
 - **Stats**: Overview statistics about processing
 
-## 📊 **Performance Guidelines**
-
-| Text Size | Beam Width | Max Depth | Min Relevance | Max Sentences | Expected Time |
-|-----------|------------|-----------|---------------|---------------|---------------|
-| **Small** (< 500 words) | 30 | 80 | 0.2 | 15 | ~30s |
-| **Medium** (500-2000 words) | 40 | 120 | 0.15 | 30 | ~60s |
-| **Large** (> 2000 words) | 50 | 150 | 0.1 | 50 | ~120s |
-
 ## 🏗️ **Project Architecture**
 
 ### **Core Components**
@@ -282,15 +274,15 @@ Contains simple results, only evidence sentences:
 Contains overview statistics about the processing process:
 ```json
 {
-  "total_context_sentences": 6442,
-  "total_beam_sentences": 4933,
-  "total_final_sentences": 4933,
-  "num_samples": 300,
+  "total_context_sentences": 1000,
+  "total_beam_sentences": 500,
+  "total_final_sentences": 150,
+  "num_samples": 50,
   "beam_parameters": {
-    "beam_width": 80,
-    "max_depth": 300,
-    "max_paths": 500,
-    "beam_sentences": 400
+    "beam_width": 40,
+    "max_depth": 120,
+    "max_paths": 200,
+    "beam_sentences": 50
   }
 }
 ```
@@ -301,26 +293,24 @@ Contains overview statistics about the processing process:
 =====================================
 
 📝 Input:
-Context: SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
-Claim: SAWACO thông báo tạm ngưng cung cấp nước.
+Context: [context text]
+Claim: [claim text]
 
 🔄 Running pipeline...
-✅ Pipeline completed in 2.34s
+✅ Pipeline completed successfully
 
 📊 Results:
-- Found 2 relevant sentences
-- Graph: 45 nodes, 89 edges
-- Beam search: 15 paths found
-- Filtering: 15 → 2 sentences
+- Found relevant sentences
+- Graph built successfully
+- Beam search completed
+- Filtering applied
 
 🎯 Final Sentences:
-1. SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
-2. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12.
+1. [relevant sentence 1]
+2. [relevant sentence 2]
 
 ✅ Done! Output saved to:
-   • raw_test_beam_filtered_0.15_20241201_143022_detailed.json
-   • raw_test_beam_filtered_0.15_20241201_143022_simple.json
-   • raw_test_beam_filtered_0.15_20241201_143022_stats.json
+   • [output files]
 ```
 
 ## 🔗 **Dependencies**

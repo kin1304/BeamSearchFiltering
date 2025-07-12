@@ -1,7 +1,7 @@
 # 🧠 VnCoreNLP Setup Guide
 
 ## Overview
-VnCoreNLP là toolkit xử lý ngôn ngữ tự nhiên tiếng Việt, được sử dụng trong pipeline để:
+VnCoreNLP is a Vietnamese natural language processing toolkit, used in the pipeline for:
 - Word segmentation
 - POS tagging  
 - Named entity recognition
@@ -25,13 +25,13 @@ chmod +x setup_vncorenlp.sh
 
 **1. Install Java (Required)**
 
-VnCoreNLP cần Java để chạy. Kiểm tra Java:
+VnCoreNLP requires Java to run. Check Java:
 
 ```bash
 java -version
 ```
 
-Nếu chưa có Java, cài đặt:
+If Java is not installed, install it:
 
 **macOS:**
 ```bash
@@ -49,8 +49,8 @@ sudo apt install openjdk-11-jdk
 ```
 
 **Windows:**
-- Download từ: https://www.oracle.com/java/technologies/downloads/
-- Hoặc sử dụng: https://adoptium.net/
+- Download from: https://www.oracle.com/java/technologies/downloads/
+- Or use: https://adoptium.net/
 
 **2. Verify Java Installation**
 ```bash
@@ -62,7 +62,7 @@ echo $JAVA_HOME
 ### Method 1: Automatic Setup (Recommended)
 
 ```bash
-# Tạo thư mục vncorenlp
+# Create vncorenlp directory
 mkdir vncorenlp
 cd vncorenlp
 
@@ -196,13 +196,13 @@ else:
 
 ### Automatic Detection
 
-Pipeline sẽ tự động detect VnCoreNLP:
+Pipeline will automatically detect VnCoreNLP:
 
 ```python
 from src.pipeline.beam_filter_pipeline import BeamFilterPipeline
 
 pipeline = BeamFilterPipeline()
-# VnCoreNLP sẽ được sử dụng nếu có sẵn
+# VnCoreNLP will be used if available
 results = pipeline.run_pipeline(context, claim)
 ```
 

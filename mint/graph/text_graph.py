@@ -9,7 +9,8 @@ import numpy as np
 from transformers import AutoTokenizer, AutoModel
 import torch
 import faiss
-from .beam_search import BeamSearchPathFinder
+# Import will be handled by the main module
+# from .beam_search import BeamSearchPathFinder
 import unicodedata
 import re
 from typing import List, Dict
