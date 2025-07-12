@@ -7,10 +7,10 @@ import os
 from typing import Dict, List, Tuple
 from datetime import datetime
 
-from ..utils.text_preprocessor import clean_text, split_sentences
-from ..nlp.vncorenlp_wrapper import VnCoreNLPWrapper
-from ..graph.text_graph_simple import TextGraphSimple
-from ..filtering.filter_wrapper import FilterWrapper
+from src.utils.text_preprocessor import clean_text, split_sentences
+from src.nlp.vncorenlp_wrapper import VnCoreNLPWrapper
+from src.graph.text_graph_simple import TextGraphSimple
+from src.filtering.filter_wrapper import FilterWrapper
 
 
 def extract_sentences_from_paths(paths, text_graph: TextGraphSimple, top_n: int = 30) -> List[Dict]:

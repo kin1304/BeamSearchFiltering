@@ -7,7 +7,10 @@ import json
 import os
 from typing import List, Dict, Optional
 
-from .beam_filter_pipeline import BeamFilterPipeline
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../..'))
+from src.pipeline.beam_filter_pipeline import BeamFilterPipeline
 
 
 def load_samples(input_file: str, max_samples: Optional[int] = None) -> List[Dict]:

@@ -8,7 +8,7 @@ import io
 
 # Import existing AdvancedDataFilter
 try:
-    from advanced_data_filtering import AdvancedDataFilter
+    from mint.filtering.advanced_data_filtering import AdvancedDataFilter
 except ImportError:
     AdvancedDataFilter = None
     print("Warning: AdvancedDataFilter not available")
