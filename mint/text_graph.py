@@ -872,7 +872,7 @@ Văn bản:
                     self.graph.nodes[entity_node]['in_claim'] = True
                     self.graph.nodes[entity_node]['claim_importance'] = 2.0  # Higher weight
         # ✅ NEW: Directly connect sentences to claim by similarity
-        self._connect_sentences_to_claim_by_similarity(claim_text)
+        self._connect_sentences_to_claim_by_similarity(claim_text)  # DISABLED: No direct sentence-claim connections
         
         print(f"✅ Added {len(entity_nodes_added)} entity nodes to graph")
         return entity_nodes_added
@@ -1720,3 +1720,4 @@ Văn bản:
         
         print(f"✨ Found {len(result)} high-confidence evidence sentences")
         return result 
+

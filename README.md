@@ -1,121 +1,381 @@
-# 📚 Beam-Graph Filter Pipeline (BGFP)
+# 🔍 Beam Search Filter Pipeline
 
-Comprehensive Vietnamese fact-checking evidence extraction toolkit using **TextGraph**, **Beam Search** and **Advanced Data Filtering**.
+> **Comprehensive Vietnamese text processing framework for fact-checking and information retrieval using beam search and advanced filtering techniques**
 
-## 🚀 Điểm nổi bật
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/Docs-Complete-brightgreen.svg)](docs/README_INDEX.md)
 
-* **One-click Pipeline**: Từ JSON thô → danh sách câu evidence đã xếp hạng.
-* **Fully Vietnamese NLP**: Dựa trên [VnCoreNLP](https://github.com/vncorenlp/VnCoreNLP) (`wseg,pos,ner,parse`).
-* **TextGraph Representation**: Node/edge granular để khai thác quan hệ ngữ nghĩa.
-* **Hybrid Beam Search**: Thử nghiệm nhiều tham số (beam_width/max_depth/max_paths) để “vét” tối đa câu tiềm năng.
-* **Multi-stage Filtering** (`AdvancedDataFilter`)
-  * Chất lượng câu, độ liên quan, entity coverage
-  * Phát hiện stance (support/refute) bằng SBERT hoặc heuristic
-  * Xoá trùng và xếp hạng tự tin cuối cùng
-* **JSON-compatible Output**: Hoàn toàn tương thích với format của `process_multi_hop_multi_beam_search.py`.
+## 📋 **Overview**
 
-## 📦 Cài đặt
+Beam Search Filter Pipeline là một framework toàn diện cho việc xử lý văn bản tiếng Việt, tập trung vào fact-checking và information retrieval. Framework sử dụng beam search algorithm kết hợp với advanced filtering techniques để tìm và lọc các câu liên quan từ context dựa trên claim.
+
+### **Core Capabilities**
+
+* 🔍 **Vietnamese NLP**: VnCoreNLP integration cho text annotation
+* 🕸️ **Graph-based Search**: NetworkX-based text graph với beam search
+* 🔄 **Advanced Filtering**: SBERT, contradiction detection, NLI stance detection
+* 🏗️ **Modular Design**: Clean, maintainable, và extensible architecture
+* 🖥️ **CLI Interface**: Easy-to-use command-line interface
+* 🐍 **Python API**: Flexible programming interface
+
+## 🚀 **Quick Start**
+
+### **Task 1: Basic Pipeline Usage**
 
 ```bash
-# 1) Tạo môi trường ảo (khuyến nghị)
-python3 -m venv .venv && source .venv/bin/activate
+# Run with default settings
+python run_pipeline.py
 
-# 2) Cài phụ thuộc
+# Use CLI interface
+python src/pipeline/cli.py context.txt claim.txt output.json
+```
+
+### **Task 2: Custom Configuration**
+
+```python
+from src.pipeline.beam_filter_pipeline import BeamFilterPipeline
+
+# Custom configuration
+config = {
+    "beam_width": 50,
+    "max_depth": 100,
+    "min_relevance_score": 0.2,
+    "max_final_sentences": 20,
+    "use_sbert": True
+}
+
+pipeline = BeamFilterPipeline(config)
+results = pipeline.run_pipeline(context, claim)
+```
+
+### **Task 3: Advanced Filtering**
+
+```bash
+# Enable advanced filtering features
+python src/pipeline/cli.py \
+    --use-sbert \
+    --use-contradiction-detection \
+    --use-nli \
+    context.txt claim.txt output.json
+```
+
+## 📊 **Performance Guidelines**
+
+| Text Size | Beam Width | Max Depth | Min Relevance | Max Sentences | Expected Time |
+|-----------|------------|-----------|---------------|---------------|---------------|
+| **Small** (< 500 words) | 30 | 80 | 0.2 | 15 | ~30s |
+| **Medium** (500-2000 words) | 40 | 120 | 0.15 | 30 | ~60s |
+| **Large** (> 2000 words) | 50 | 150 | 0.1 | 50 | ~120s |
+
+## 🏗️ **Project Architecture**
+
+### **Core Components**
+
+```
+src/                           # Refactored modules
+├── utils/                     # Text preprocessing utilities
+│   └── text_preprocessor.py   # Text cleaning & sentence splitting
+├── nlp/                       # NLP wrapper
+│   └── vncorenlp_wrapper.py  # VnCoreNLP integration
+├── graph/                     # Simplified graph
+│   └── text_graph_simple.py  # TextGraph for pipeline
+├── filtering/                 # Filter wrapper
+│   └── filter_wrapper.py     # AdvancedDataFilter wrapper
+└── pipeline/                  # Main pipeline
+    ├── beam_filter_pipeline.py # Main pipeline class
+    └── cli.py                # CLI interface
+
+mint/                          # Original modules (preserved)
+├── text_graph.py             # Full-featured graph
+├── beam_search.py            # Beam search algorithm
+└── helpers.py                # Helper functions
+
+advanced_data_filtering.py     # Advanced filtering system
+```
+
+### **Workflow Architecture**
+
+```
+Input Text → Preprocessing → NLP Annotation → Graph Building → Beam Search → Filtering → Output
+     ↓              ↓              ↓              ↓              ↓           ↓
+  Clean Text   VnCoreNLP    Text Graph    Path Finding   Relevance   Final Sentences
+```
+
+## 📚 **Comprehensive Documentation**
+
+* **[📖 Complete Documentation](docs/README_INDEX.md)**: Full documentation index
+* **[🏗️ Architecture Overview](README_REFACTORED.md)**: Project architecture details
+* **[🧠 VnCoreNLP Setup](docs/VNCORENLP_SETUP.md)**: Vietnamese NLP installation guide
+* **[🔧 Module Documentation](docs/)**: Individual module documentation
+* **[📚 Original Files](docs/README_ORIGINAL_FILES.md)**: Migration and backward compatibility
+
+## 🎯 **Use Cases**
+
+### **Fact-Checking Pipeline**
+```python
+# Extract relevant sentences for fact-checking
+pipeline = BeamFilterPipeline()
+results = pipeline.run_pipeline(context, claim)
+relevant_sentences = results["final_sentences"]
+```
+
+### **Information Retrieval**
+```python
+# Find sentences related to a specific claim
+config = {"beam_width": 60, "max_depth": 150}
+pipeline = BeamFilterPipeline(config)
+results = pipeline.run_pipeline(context, query)
+```
+
+### **Text Analysis**
+```python
+# Analyze text structure and relationships
+from src.graph.text_graph_simple import TextGraphSimple
+graph = TextGraphSimple()
+# ... build and analyze graph
+```
+
+### **Batch Processing**
+```bash
+# Process multiple files
+for file in contexts/*.txt; do
+    python src/pipeline/cli.py "$file" claims/$(basename "$file") output/$(basename "$file" .txt).json
+done
+```
+
+## 🔧 **Configuration**
+
+### **Environment Setup**
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd BeamSearchFillter
+
+# Install dependencies
 pip install -r requirements.txt
 
-# 3) Tải VnCoreNLP (nếu chưa có)
-#    └── vncorenlp/VnCoreNLP-1.2.jar
-#    └── vncorenlp/models/*
+# Setup environment
+cp .env.example .env
+# Edit .env and add your OpenAI API key if needed
+
+# Optional: Install VnCoreNLP for Vietnamese processing
+# See [VnCoreNLP Setup Guide](docs/VNCORENLP_SETUP.md)
+# Or use auto setup: ./setup_vncorenlp.sh
 ```
 
-## 🔧 Quick Start
+### **Pipeline Configuration**
+
+```python
+config = {
+    "beam_width": 40,              # Beam search width
+    "max_depth": 120,              # Maximum search depth
+    "max_paths": 200,              # Maximum paths to find
+    "min_relevance_score": 0.15,   # Minimum relevance for filtering
+    "max_final_sentences": 30,     # Maximum final sentences
+    "use_sbert": False,            # Enable SBERT filtering
+    "use_contradiction_detection": False,  # Enable contradiction detection
+    "use_nli": False,              # Enable NLI stance detection
+    "enable_pos_filtering": True,  # Enable POS tag filtering
+    "important_pos_tags": {"N", "Np", "V", "A", "Nc", "M", "R", "P"}
+}
+```
+
+### **CLI Options**
 
 ```bash
-python beam_graph_filter_pipeline.py \
-    --input raw_test.json \
-    --output_dir advanced_filter_output \
-    --max_samples 10           # demo 10 sample đầu
+python src/pipeline/cli.py \
+    --beam-width 50 \
+    --max-depth 100 \
+    --min-relevance 0.2 \
+    --max-final-sentences 20 \
+    --use-sbert \
+    context.txt claim.txt output.json
 ```
 
-Tham số mặc định & ví dụ tuỳ chỉnh:
+## 🛠️ **Advanced Features**
 
-| Flag | Mặc định | Mô tả |
-|------|----------|-------|
-| `--beam_width` | 40 | Số path giữ mỗi bước |
-| `--max_depth` | 120 | Độ sâu tối đa của path |
-| `--max_paths` | 200 | Tổng paths tối đa |
-| `--beam_sentences` | 50 | Số câu lấy ra trước khi lọc |
-| `--max_final_sentences` | 30 | Câu cuối cùng sau lọc |
-| `--min_relevance` | 0.15 | Ngưỡng relevance tối thiểu |
+### **Implemented Capabilities**
 
-Muốn lấy **nhiều câu** hơn:
+* ✅ **Vietnamese NLP Processing**: Full VnCoreNLP integration
+* ✅ **Graph-based Search**: NetworkX text graph với beam search
+* ✅ **Multi-stage Filtering**: SBERT, contradiction, NLI filtering
+* ✅ **Modular Architecture**: Clean separation of concerns
+* ✅ **CLI Interface**: Complete command-line tools
+* ✅ **Python API**: Flexible programming interface
+* ✅ **Error Handling**: Comprehensive error handling và fallbacks
+* ✅ **Documentation**: Complete documentation với examples
 
+### **Research Applications**
+
+* **Fact-checking Research**: Extract relevant evidence từ large texts
+* **Information Retrieval**: Find related sentences cho specific queries
+* **Text Analysis**: Analyze text structure và relationships
+* **Vietnamese NLP**: Study Vietnamese text processing techniques
+
+## 📈 **Output Formats**
+
+### **Console Output**
+```
+🔧 Beam Search Filter Pipeline - Default Run
+=====================================
+
+📝 Input:
+Context: SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
+Claim: SAWACO thông báo tạm ngưng cung cấp nước.
+
+🔄 Running pipeline...
+✅ Pipeline completed in 2.34s
+
+📊 Results:
+- Found 2 relevant sentences
+- Graph: 45 nodes, 89 edges
+- Beam search: 15 paths found
+- Filtering: 15 → 2 sentences
+
+🎯 Final Sentences:
+1. SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
+2. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12.
+```
+
+### **JSON Output**
+```json
+{
+    "context": "Original context text",
+    "claim": "Original claim text",
+    "context_sentences": ["Sentence 1", "Sentence 2"],
+    "candidate_sentences": [
+        {
+            "sentence": "Candidate sentence",
+            "score": 0.85,
+            "path": ["claim_0", "word_1", "sentence_0"]
+        }
+    ],
+    "final_sentences": [
+        {
+            "sentence": "Final sentence",
+            "relevance_score": 0.92
+        }
+    ],
+    "pipeline_stats": {
+        "total_time": 2.34,
+        "graph_nodes": 45,
+        "graph_edges": 89,
+        "beam_paths_found": 15,
+        "sentences_filtered": 2
+    }
+}
+```
+
+## 🔗 **Dependencies**
+
+### **Required**
+- `networkx`: Graph data structure
+- `typing`: Type hints
+- `argparse`: Command-line argument parsing
+- `mint.beam_search`: Beam search algorithm (existing)
+- `advanced_data_filtering`: Filter system (existing)
+
+### **Optional**
+- `py_vncorenlp`: Vietnamese NLP toolkit
+- `vncorenlp/`: VnCoreNLP models directory
+- `sentence-transformers`: For SBERT filtering
+- `transformers`: For NLI and contradiction detection
+
+## 🧪 **Testing**
+
+### **Quick Test**
 ```bash
-python beam_graph_filter_pipeline.py \
-    --input raw_test.json \
-    --beam_sentences 300 \
-    --max_final_sentences 150 \
-    --min_relevance 0.10
+# Test basic functionality
+python run_pipeline.py
+
+# Test CLI
+python src/pipeline/cli.py test_context.txt test_claim.txt test_output.json
 ```
 
-## 🛠️ Workflow chi tiết
-
-```mermaid
-graph TD
-    A[📥 Input JSON] --> B[🧹 Preprocess & Sentence Split]
-    B --> C[🔍 VnCoreNLP Annotation]
-    C --> D[🕸️ TextGraph Build]
-    D --> E[🚀 Beam Search Paths]
-    E --> F[✂️ Sentence Extraction]
-    F --> G[🔎 Advanced Data Filtering]
-    G --> H[📤 Filtered Evidence JSON]
+### **Comprehensive Test**
+```bash
+# Test with examples
+python example_usage.py
 ```
 
-### Giai đoạn chính
-1. **Preprocess**: Chuẩn hoá khoảng trắng, tách câu regex.
-2. **Annotation**: Gọi VnCoreNLP để tách từ, POS, NER, dependency.
-3. **TextGraph**: Xây node `word`, `sentence`, `claim`, edge quan hệ.
-4. **Beam Search**: Duyệt đồ thị, trả về các path giàu thông tin.
-5. **Sentence Extraction**: Gom các câu xuất hiện trong path, gán điểm path cao nhất.
-6. **Advanced Filter**: 5 stage  
-   a. Quality  
-   b. Semantic Relevance  
-   c. Entity Coverage  
-   d. Stance Detection  
-   e. Duplicate Removal & Ranking.
-7. **Export**: `*_simple.json`, `*_detailed.json`, `*_stats.json`.
+## 🔍 **Troubleshooting**
 
-## ⚙️ Cấu trúc thư mục
+### **Common Issues**
 
-```text
-BeamSearchFillter/
-├── beam_graph_filter_pipeline.py   # Entrypoint CLI
-├── advanced_data_filtering.py      # Multi-stage filter logic
-├── mint/                           # Thư viện TextGraph & BeamSearch
-│   ├── text_graph.py
-│   ├── beam_search.py
-│   ├── ...
-└── vncorenlp/                      # JAR + mô hình Vietnamese NLP
+**1. VnCoreNLP not available:**
+```bash
+# Check VnCoreNLP installation
+ls -la vncorenlp/
+python -c "from py_vncorenlp import py_vncorenlp; print('VnCoreNLP available')"
 ```
 
-## 🧪 Benchmark / Thống kê
+**2. AdvancedDataFilter not found:**
+```bash
+# Check if file exists
+ls -la advanced_data_filtering.py
+```
 
-Sau 1.000 samples (tham số mặc định):
+**3. Memory issues:**
+```python
+# Reduce parameters
+config = {
+    "beam_width": 20,
+    "max_depth": 60,
+    "max_paths": 100,
+    "max_final_sentences": 15
+}
+```
 
-| Giai đoạn | Tổng câu |
-|-----------|----------|
-| Sentence split | 54 321 |
-| Beam Search    | 6 832 |
-| Final evidence | 28 974 |
+## 📝 **Contributing**
 
-> *Chi tiết xem file `*_stats.json` sinh ra sau mỗi lần chạy.*
+Beam Search Filter Pipeline welcomes contributions in:
 
-## 🤝 Đóng góp
+* **New filtering methods**: Additional sentence filtering algorithms
+* **Graph algorithms**: Novel beam search approaches
+* **Vietnamese NLP**: Enhanced text processing techniques
+* **Evaluation metrics**: Advanced relevance measures
+* **Performance optimization**: More efficient processing patterns
 
-* Fork & PR – luôn hoan nghênh!
-* Issue/Idea – cứ tạo ticket.
-* Format commit: `feat:`, `fix:`, `docs:`, `refactor:`.
+### **Code Style**
+- Follow existing module structure
+- Use type hints
+- Include comprehensive error handling
+- Add documentation for new functions
 
-## 📜 License
+## 📞 **Support**
 
-MIT License © 2025 ‑ BGFP Team 
+* **Documentation**: [docs/README_INDEX.md](docs/README_INDEX.md)
+* **Issues**: Check troubleshooting sections in module docs
+* **Migration**: See [docs/README_ORIGINAL_FILES.md](docs/README_ORIGINAL_FILES.md)
+
+## 📜 **License**
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+🚀 **Happy Vietnamese Text Processing!** Whether you're doing fact-checking research, information retrieval, or Vietnamese NLP development, Beam Search Filter Pipeline provides comprehensive tools for Vietnamese text intelligence research.
+
+## About
+
+> **Comprehensive Vietnamese text processing framework for fact-checking and information retrieval using beam search and advanced filtering techniques**
+
+### Topics
+
+- `nlp` - Natural Language Processing
+- `vietnamese` - Vietnamese language processing
+- `fact-checking` - Fact verification and validation
+- `beam-search` - Graph-based search algorithms
+- `text-filtering` - Advanced text filtering techniques
+
+### Resources
+
+- [📖 Complete Documentation](docs/README_INDEX.md)
+- [🏗️ Architecture Overview](README_REFACTORED.md)
+- [🧠 VnCoreNLP Setup](docs/VNCORENLP_SETUP.md)
+
+### License
+
+MIT license 

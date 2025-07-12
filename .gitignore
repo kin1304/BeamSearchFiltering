@@ -1,6 +1,47 @@
+# VnCoreNLP
 vncorenlp/
 *.xz
 *.jar
 
+# Environment files
 .env
-.env
+.env.local
+.env.production
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+
+# Test files
+raw_test.json
+test_*.json
+temp_*.json
+
+# Large data files
+*.json.gz
+*.json.bz2
