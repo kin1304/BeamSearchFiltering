@@ -180,7 +180,7 @@ class BeamFilterPipeline:
     def process_batch(self, samples: List[Dict], output_dir: str = "beam_filter_output",
                      min_relevance: float = 0.15, beam_width: int = 40, max_depth: int = 120,
                      max_paths: int = 200, max_final_sentences: int = 30, beam_sentences: int = 50,
-                     beam_only: bool = False, filter_only: bool = False) -> Dict:
+                     beam_only: bool = False, filter_only: bool = False, input_name: str = "raw_test") -> Dict:
         """
         Process a batch of samples
         
@@ -195,6 +195,7 @@ class BeamFilterPipeline:
             beam_sentences (int): Maximum sentences from beam search
             beam_only (bool): Use only beam search, no filtering
             filter_only (bool): Use only filtering, no beam search
+            input_name (str): Input file name for output file naming
             
         Returns:
             Dict: Processing results and statistics
@@ -203,10 +204,11 @@ class BeamFilterPipeline:
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        # Define output files
-        simple_file = os.path.join(output_dir, f"simple_{timestamp}.json")
-        detailed_file = os.path.join(output_dir, f"detailed_{timestamp}.json")
-        stats_file = os.path.join(output_dir, f"stats_{timestamp}.json")
+        # Define output files with new naming pattern
+        file_prefix = f"{input_name}_beam_filtered_{min_relevance}_{timestamp}"
+        detailed_file = os.path.join(output_dir, f"{file_prefix}_detailed.json")
+        simple_file = os.path.join(output_dir, f"{file_prefix}_simple.json")
+        stats_file = os.path.join(output_dir, f"{file_prefix}_stats.json")
         
         total_to_process = len(samples)
         print(f"Processing {total_to_process} samples with min_relevance_score={min_relevance} ...")
@@ -257,11 +259,11 @@ class BeamFilterPipeline:
         print(f"After Advanced Filtering:    {total_final}")
         print("===========================================")
 
-        print(f"✅ Done! Output saved to:\n   • {simple_file}\n   • {detailed_file}\n   • {stats_file}")
+        print(f"✅ Done! Output saved to:\n   • {detailed_file}\n   • {simple_file}\n   • {stats_file}")
         
         return {
-            "simple_file": simple_file,
             "detailed_file": detailed_file,
+            "simple_file": simple_file,
             "stats_file": stats_file,
             "statistics": run_stats
         } 

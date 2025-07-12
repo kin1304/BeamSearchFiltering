@@ -60,6 +60,25 @@ python src/pipeline/cli.py \
     context.txt claim.txt output.json
 ```
 
+### **Task 4: Output Files**
+
+Pipeline tạo ra **3 loại output file**:
+
+```bash
+# Run pipeline
+python run_pipeline.py --input raw_test.json --min_relevance 0.15
+
+# Output files generated:
+# • raw_test_beam_filtered_0.15_20241201_143022_detailed.json
+# • raw_test_beam_filtered_0.15_20241201_143022_simple.json  
+# • raw_test_beam_filtered_0.15_20241201_143022_stats.json
+```
+
+**File Types:**
+- **Detailed**: Thông tin chi tiết về quá trình xử lý
+- **Simple**: Chỉ có danh sách evidence sentences
+- **Stats**: Thống kê tổng quan về processing
+
 ## 📊 **Performance Guidelines**
 
 | Text Size | Beam Width | Max Depth | Min Relevance | Max Sentences | Expected Time |
@@ -216,6 +235,66 @@ python src/pipeline/cli.py \
 
 ## 📈 **Output Formats**
 
+Pipeline tạo ra **3 loại output file** với format tên file: `{input_name}_beam_filtered_{min_relevance}_{timestamp}_{type}.json`
+
+### **1. Detailed Output** (`*_detailed.json`)
+Chứa thông tin chi tiết về quá trình xử lý:
+```json
+[
+  {
+    "context": "Original context text",
+    "claim": "Original claim text",
+    "multi_level_evidence": [
+      {
+        "sentence": "Final sentence 1",
+        "relevance_score": 0.92,
+        "beam_score": 0.85,
+        "path": ["claim_0", "word_1", "sentence_0"]
+      }
+    ],
+    "statistics": {
+      "beam": {
+        "total_paths": 15,
+        "unique_sentences": 25
+      }
+    }
+  }
+]
+```
+
+### **2. Simple Output** (`*_simple.json`)
+Chứa kết quả đơn giản, chỉ có evidence sentences:
+```json
+[
+  {
+    "context": "Original context text",
+    "claim": "Original claim text",
+    "multi_level_evidence": [
+      "Final sentence 1",
+      "Final sentence 2",
+      "Final sentence 3"
+    ]
+  }
+]
+```
+
+### **3. Statistics Output** (`*_stats.json`)
+Chứa thống kê tổng quan về quá trình xử lý:
+```json
+{
+  "total_context_sentences": 6442,
+  "total_beam_sentences": 4933,
+  "total_final_sentences": 4933,
+  "num_samples": 300,
+  "beam_parameters": {
+    "beam_width": 80,
+    "max_depth": 300,
+    "max_paths": 500,
+    "beam_sentences": 400
+  }
+}
+```
+
 ### **Console Output**
 ```
 🔧 Beam Search Filter Pipeline - Default Run
@@ -237,35 +316,11 @@ Claim: SAWACO thông báo tạm ngưng cung cấp nước.
 🎯 Final Sentences:
 1. SAWACO thông báo tạm ngưng cung cấp nước từ 22 giờ đến 4 giờ.
 2. Các khu vực bị ảnh hưởng gồm quận 6, 8, 12.
-```
 
-### **JSON Output**
-```json
-{
-    "context": "Original context text",
-    "claim": "Original claim text",
-    "context_sentences": ["Sentence 1", "Sentence 2"],
-    "candidate_sentences": [
-        {
-            "sentence": "Candidate sentence",
-            "score": 0.85,
-            "path": ["claim_0", "word_1", "sentence_0"]
-        }
-    ],
-    "final_sentences": [
-        {
-            "sentence": "Final sentence",
-            "relevance_score": 0.92
-        }
-    ],
-    "pipeline_stats": {
-        "total_time": 2.34,
-        "graph_nodes": 45,
-        "graph_edges": 89,
-        "beam_paths_found": 15,
-        "sentences_filtered": 2
-    }
-}
+✅ Done! Output saved to:
+   • raw_test_beam_filtered_0.15_20241201_143022_detailed.json
+   • raw_test_beam_filtered_0.15_20241201_143022_simple.json
+   • raw_test_beam_filtered_0.15_20241201_143022_stats.json
 ```
 
 ## 🔗 **Dependencies**

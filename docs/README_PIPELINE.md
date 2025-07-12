@@ -171,47 +171,81 @@ python src/pipeline/cli.py \
     context.txt claim.txt output.json
 ```
 
-#### Output Format
+## Output Format
 
-The CLI outputs a JSON file with the following structure:
+Pipeline sẽ xuất ra **3 file output** với format tên file:
 
+```
+{input_name}_beam_filtered_{min_relevance}_{timestamp}_detailed.json
+{input_name}_beam_filtered_{min_relevance}_{timestamp}_simple.json
+{input_name}_beam_filtered_{min_relevance}_{timestamp}_stats.json
+```
+
+### 1. Detailed Output (`*_detailed.json`)
+Chứa thông tin chi tiết về quá trình xử lý từng sample:
 ```json
-{
+[
+  {
     "context": "Original context text",
     "claim": "Original claim text",
-    "context_sentences": ["Sentence 1", "Sentence 2", ...],
-    "candidate_sentences": [
-        {
-            "sentence": "Candidate sentence 1",
-            "score": 0.85,
-            "path": ["claim_0", "word_1", "sentence_0"]
-        }
+    "multi_level_evidence": [
+      {
+        "sentence": "Final sentence 1",
+        "relevance_score": 0.92,
+        "beam_score": 0.85,
+        "path": ["claim_0", "word_1", "sentence_0"]
+      }
     ],
-    "final_sentences": [
-        {
-            "sentence": "Final sentence 1",
-            "relevance_score": 0.92
-        }
-    ],
-    "pipeline_stats": {
-        "total_time": 2.5,
-        "graph_nodes": 150,
-        "graph_edges": 300,
-        "beam_paths_found": 25,
-        "sentences_filtered": 15
-    },
-    "graph_stats": {
-        "word_nodes": 100,
-        "sentence_nodes": 5,
-        "dependency_edges": 200
-    },
-    "filter_stats": {
-        "input_count": 25,
-        "output_count": 15,
-        "filter_time": 1.2
+    "statistics": {
+      "beam": {
+        "total_paths": 15,
+        "unique_sentences": 25
+      }
     }
+  }
+]
+```
+
+### 2. Simple Output (`*_simple.json`)
+Chỉ chứa danh sách evidence sentences:
+```json
+[
+  {
+    "context": "Original context text",
+    "claim": "Original claim text",
+    "multi_level_evidence": [
+      "Final sentence 1",
+      "Final sentence 2"
+    ]
+  }
+]
+```
+
+### 3. Statistics Output (`*_stats.json`)
+Thống kê tổng quan về quá trình xử lý:
+```json
+{
+  "total_context_sentences": 6442,
+  "total_beam_sentences": 4933,
+  "total_final_sentences": 4933,
+  "num_samples": 300,
+  "beam_parameters": {
+    "beam_width": 80,
+    "max_depth": 300,
+    "max_paths": 500,
+    "beam_sentences": 400
+  }
 }
 ```
+
+**Ý nghĩa:**
+- `detailed`: Phục vụ phân tích sâu, debug, kiểm tra đường đi, điểm số, v.v.
+- `simple`: Dùng cho downstream task, chỉ lấy danh sách evidence cuối cùng.
+- `stats`: Theo dõi hiệu suất, số lượng câu, tham số beam, v.v.
+
+**Lưu ý:**
+- Tên file sẽ tự động sinh theo input, min_relevance, timestamp để dễ quản lý batch.
+- Các script, CLI, Python API đều xuất ra đúng 3 file này.
 
 ## Usage in Pipeline
 

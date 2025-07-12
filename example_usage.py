@@ -69,7 +69,7 @@ def example_batch_processing():
         use_nli=False
     )
     
-    # Process batch
+    # Process batch with new output format
     results = pipeline.process_batch(
         samples=samples,
         output_dir="example_output",
@@ -78,12 +78,15 @@ def example_batch_processing():
         max_depth=120,
         max_paths=200,
         max_final_sentences=30,
-        beam_sentences=50
+        beam_sentences=50,
+        input_name="example_test"  # This will be used in output file naming
     )
     
     print("=== BATCH PROCESSING ===")
-    print(f"Results saved to: {results['simple_file']}")
-    print(f"Statistics: {results['statistics']}")
+    print(f"Detailed results: {results['detailed_file']}")
+    print(f"Simple results: {results['simple_file']}")
+    print(f"Statistics: {results['stats_file']}")
+    print(f"Statistics data: {results['statistics']}")
     print("========================")
 
 

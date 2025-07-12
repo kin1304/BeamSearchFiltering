@@ -68,6 +68,9 @@ def main():
     args.output_dir = os.path.abspath(args.output_dir)
     os.makedirs(args.output_dir, exist_ok=True)
     
+    # Extract input name for output file naming
+    input_name = os.path.splitext(os.path.basename(args.input))[0]
+    
     # Load samples
     try:
         samples = load_samples(args.input, args.max_samples)
@@ -96,7 +99,8 @@ def main():
             max_final_sentences=args.max_final_sentences,
             beam_sentences=args.beam_sentences,
             beam_only=args.beam_only,
-            filter_only=args.filter_only
+            filter_only=args.filter_only,
+            input_name=input_name
         )
         
         print(f"\n✅ Processing completed successfully!")
