@@ -8,14 +8,14 @@
 
 ## 📋 **Overview**
 
-Beam Search Filter Pipeline là một framework toàn diện cho việc xử lý văn bản tiếng Việt, tập trung vào fact-checking và information retrieval. Framework sử dụng beam search algorithm kết hợp với advanced filtering techniques để tìm và lọc các câu liên quan từ context dựa trên claim.
+Beam Search Filter Pipeline is a comprehensive framework for Vietnamese text processing, focusing on fact-checking and information retrieval. The framework uses beam search algorithms combined with advanced filtering techniques to find and filter relevant sentences from context based on claims.
 
 ### **Core Capabilities**
 
-* 🔍 **Vietnamese NLP**: VnCoreNLP integration cho text annotation
-* 🕸️ **Graph-based Search**: NetworkX-based text graph với beam search
+* 🔍 **Vietnamese NLP**: VnCoreNLP integration for text annotation
+* 🕸️ **Graph-based Search**: NetworkX-based text graph with beam search
 * 🔄 **Advanced Filtering**: SBERT, contradiction detection, NLI stance detection
-* 🏗️ **Modular Design**: Clean, maintainable, và extensible architecture
+* 🏗️ **Modular Design**: Clean, maintainable, and extensible architecture
 * 🖥️ **CLI Interface**: Easy-to-use command-line interface
 * 🐍 **Python API**: Flexible programming interface
 
@@ -62,7 +62,7 @@ python src/pipeline/cli.py \
 
 ### **Task 4: Output Files**
 
-Pipeline tạo ra **3 loại output file**:
+The pipeline generates **3 types of output files**:
 
 ```bash
 # Run pipeline
@@ -75,9 +75,9 @@ python run_pipeline.py --input raw_test.json --min_relevance 0.15
 ```
 
 **File Types:**
-- **Detailed**: Thông tin chi tiết về quá trình xử lý
-- **Simple**: Chỉ có danh sách evidence sentences
-- **Stats**: Thống kê tổng quan về processing
+- **Detailed**: Detailed information about the processing process
+- **Simple**: Only list of evidence sentences
+- **Stats**: Overview statistics about processing
 
 ## 📊 **Performance Guidelines**
 
@@ -218,27 +218,27 @@ python src/pipeline/cli.py \
 ### **Implemented Capabilities**
 
 * ✅ **Vietnamese NLP Processing**: Full VnCoreNLP integration
-* ✅ **Graph-based Search**: NetworkX text graph với beam search
+* ✅ **Graph-based Search**: NetworkX text graph with beam search
 * ✅ **Multi-stage Filtering**: SBERT, contradiction, NLI filtering
 * ✅ **Modular Architecture**: Clean separation of concerns
 * ✅ **CLI Interface**: Complete command-line tools
 * ✅ **Python API**: Flexible programming interface
-* ✅ **Error Handling**: Comprehensive error handling và fallbacks
-* ✅ **Documentation**: Complete documentation với examples
+* ✅ **Error Handling**: Comprehensive error handling and fallbacks
+* ✅ **Documentation**: Complete documentation with examples
 
 ### **Research Applications**
 
-* **Fact-checking Research**: Extract relevant evidence từ large texts
-* **Information Retrieval**: Find related sentences cho specific queries
-* **Text Analysis**: Analyze text structure và relationships
+* **Fact-checking Research**: Extract relevant evidence from large texts
+* **Information Retrieval**: Find related sentences for specific queries
+* **Text Analysis**: Analyze text structure and relationships
 * **Vietnamese NLP**: Study Vietnamese text processing techniques
 
 ## 📈 **Output Formats**
 
-Pipeline tạo ra **3 loại output file** với format tên file: `{input_name}_beam_filtered_{min_relevance}_{timestamp}_{type}.json`
+The pipeline generates **3 types of output files** with filename format: `{input_name}_beam_filtered_{min_relevance}_{timestamp}_{type}.json`
 
 ### **1. Detailed Output** (`*_detailed.json`)
-Chứa thông tin chi tiết về quá trình xử lý:
+Contains detailed information about the processing process:
 ```json
 [
   {
@@ -263,7 +263,7 @@ Chứa thông tin chi tiết về quá trình xử lý:
 ```
 
 ### **2. Simple Output** (`*_simple.json`)
-Chứa kết quả đơn giản, chỉ có evidence sentences:
+Contains simple results, only evidence sentences:
 ```json
 [
   {
@@ -279,7 +279,7 @@ Chứa kết quả đơn giản, chỉ có evidence sentences:
 ```
 
 ### **3. Statistics Output** (`*_stats.json`)
-Chứa thống kê tổng quan về quá trình xử lý:
+Contains overview statistics about the processing process:
 ```json
 {
   "total_context_sentences": 6442,

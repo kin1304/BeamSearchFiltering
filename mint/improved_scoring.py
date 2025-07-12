@@ -14,18 +14,18 @@ class ImprovedScoring:
     
     def __init__(self):
         # Enhanced scoring weights
-        self.word_match_weight = 5.0        # Tăng trọng số cho exact match
+        self.word_match_weight = 5.0        # Increase weight for exact match
         self.semantic_match_weight = 3.0    # Semantic similarity
         self.fuzzy_match_weight = 2.0       # Fuzzy string matching
         self.entity_bonus = 2.5             # Entity relevance
-        self.length_penalty = 0.05          # Giảm penalty cho path dài
-        self.sentence_bonus = 1.5           # Bonus cho mỗi sentence
+        self.length_penalty = 0.05          # Reduce penalty for long paths
+        self.sentence_bonus = 1.5           # Bonus for each sentence
         
-        # ✅ MỚI: Contradiction & Negation weights
-        self.contradiction_weight = 4.0     # Trọng số cho contradiction
-        self.negation_weight = 3.5         # Trọng số cho negation
-        self.opposite_weight = 2.5         # Trọng số cho opposite meaning
-        self.temporal_contradiction_weight = 3.0  # Thời gian mâu thuẫn
+        # ✅ NEW: Contradiction & Negation weights
+        self.contradiction_weight = 4.0     # Weight for contradiction
+        self.negation_weight = 3.5         # Weight for negation
+        self.opposite_weight = 2.5         # Weight for opposite meaning
+        self.temporal_contradiction_weight = 3.0  # Temporal contradiction
         
         # Vietnamese negation indicators
         self.negation_words = {
@@ -66,9 +66,9 @@ class ImprovedScoring:
         }
         
         # Advanced scoring weights
-        self.synonym_weight = 2.0           # Từ đồng nghĩa
+        self.synonym_weight = 2.0           # Synonyms
         self.tfidf_weight = 1.5            # TF-IDF similarity
-        self.position_weight = 1.0         # Vị trí của từ trong câu
+        self.position_weight = 1.0         # Position of word in sentence
         
     def enhanced_word_matching(self, claim_words: Set[str], path_words: Set[str]) -> float:
         """
@@ -77,11 +77,11 @@ class ImprovedScoring:
         if not claim_words or not path_words:
             return 0.0
             
-        # 1. Exact match (như trước)
+        # 1. Exact match (as before)
         exact_matches = claim_words.intersection(path_words)
         exact_ratio = len(exact_matches) / len(claim_words)
         
-        # 2. Partial matching (từ con)
+        # 2. Partial matching (subwords)
         partial_matches = 0
         for claim_word in claim_words:
             for path_word in path_words:
@@ -97,12 +97,12 @@ class ImprovedScoring:
             for path_word in path_words:
                 if len(claim_word) >= 3 and len(path_word) >= 3:
                     similarity = SequenceMatcher(None, claim_word, path_word).ratio()
-                    if similarity >= 0.8:  # 80% tương tự
+                    if similarity >= 0.8:  # 80% similar
                         edit_distance_matches += 1
                         break
         edit_ratio = edit_distance_matches / len(claim_words)
         
-        # Combine scores với trọng số
+        # Combine scores with weights
         total_score = (exact_ratio * 1.0 + 
                       partial_ratio * 0.6 + 
                       edit_ratio * 0.4)
@@ -170,18 +170,18 @@ class ImprovedScoring:
         
         negation_score = 0.0
         
-        # 1. Direct negation: Claim có từ khẳng định, sentence có từ phủ định
+        # 1. Direct negation: Claim has affirmative words, sentence has negative words
         claim_has_negation = any(word in self.negation_words for word in claim_words)
         sentence_has_negation = any(word in self.negation_words for word in sentence_words)
         
         if not claim_has_negation and sentence_has_negation:
-            # Claim khẳng định, sentence phủ định -> potential contradiction
+            # Claim affirmative, sentence negative -> potential contradiction
             shared_words = set(claim_words).intersection(set(sentence_words))
-            if len(shared_words) >= 2:  # Có ít nhất 2 từ chung
+            if len(shared_words) >= 2:  # At least 2 common words
                 negation_score += 0.8
                 
         elif claim_has_negation and not sentence_has_negation:
-            # Claim phủ định, sentence khẳng định -> potential contradiction
+            # Claim negative, sentence affirmative -> potential contradiction
             shared_words = set(claim_words).intersection(set(sentence_words))
             if len(shared_words) >= 2:
                 negation_score += 0.8
@@ -193,20 +193,20 @@ class ImprovedScoring:
                 if any(opp_word in sentence_words for opp_word in opposite_words):
                     negation_score += 0.6
                     
-        # 3. Numbers contradiction (quan trọng cho fact-checking)
+        # 3. Numbers contradiction (important for fact-checking)
         claim_numbers = self._extract_numbers(claim_text)
         sentence_numbers = self._extract_numbers(sentence_text)
         
         if claim_numbers and sentence_numbers:
-            # Kiểm tra số khác nhau đáng kể
+            # Check for significantly different numbers
             for c_num in claim_numbers:
                 for s_num in sentence_numbers:
-                    # ✅ BẢO VỆ KHỎI DIVISION BY ZERO
+                    # ✅ PROTECT FROM DIVISION BY ZERO
                     max_num = max(c_num, s_num)
-                    if max_num > 0 and abs(c_num - s_num) / max_num > 0.3:  # Khác nhau >30%
+                    if max_num > 0 and abs(c_num - s_num) / max_num > 0.3:  # Different by >30%
                         negation_score += 0.4
         
-        # 4. Temporal contradiction (thời gian mâu thuẫn)
+        # 4. Temporal contradiction (time contradiction)
         temporal_score = self._detect_temporal_contradiction(claim_text, sentence_text)
         negation_score += temporal_score * 0.3
         
@@ -225,7 +225,7 @@ class ImprovedScoring:
         # 1. Contradiction indicators trong sentence
         has_contradiction_words = any(word in self.contradiction_words for word in sentence_words)
         if has_contradiction_words:
-            # Kiểm tra xem có overlap với claim không
+            # Check if there's overlap with claim
             claim_words = set(claim_text.lower().split())
             sentence_words_set = set(sentence_words)
             shared_words = claim_words.intersection(sentence_words_set)
@@ -233,7 +233,7 @@ class ImprovedScoring:
             if len(shared_words) >= 2:
                 contradiction_score += 0.7
                 
-        # 2. Pattern "X nhưng Y" hoặc "Mặc dù X, Y"
+        # 2. Pattern "X but Y" or "Although X, Y"
         sentence_lower = sentence_text.lower()
         contradiction_patterns = [
             r'(.+)\s+(nhưng|tuy nhiên|mặc dù)\s+(.+)',
@@ -246,7 +246,7 @@ class ImprovedScoring:
         for pattern in contradiction_patterns:
             match = re.search(pattern, sentence_lower)
             if match:
-                # Kiểm tra parts có relate đến claim không
+                # Check if parts relate to claim
                 parts = [part.strip() for part in match.groups() if part]
                 claim_words = set(claim_text.lower().split())
                 
@@ -263,7 +263,7 @@ class ImprovedScoring:
         if claim_percentages and sentence_percentages:
             for c_pct in claim_percentages:
                 for s_pct in sentence_percentages:
-                    if abs(c_pct - s_pct) > 20:  # Khác nhau >20%
+                    if abs(c_pct - s_pct) > 20:  # Different by >20%
                         contradiction_score += 0.4
                         
         return min(contradiction_score, 1.0)
@@ -295,7 +295,7 @@ class ImprovedScoring:
         """Extract numbers từ text"""
         numbers = []
         
-        # Extract integer và float numbers
+        # Extract integer and float numbers
         number_pattern = r'\b\d+(?:\.\d+)?\b'
         matches = re.findall(number_pattern, text)
         
@@ -311,7 +311,7 @@ class ImprovedScoring:
         """Extract percentages từ text"""
         percentages = []
         
-        # Pattern cho phần trăm
+        # Pattern for percentages
         percentage_patterns = [
             r'(\d+(?:\.\d+)?)\s*%',
             r'(\d+(?:\.\d+)?)\s*phần\s*trăm',
@@ -342,7 +342,7 @@ class ImprovedScoring:
         entity_matches = claim_entities.intersection(path_entities)
         entity_ratio = len(entity_matches) / len(claim_entities)
         
-        # Bonus cho số lượng entities matched
+        # Bonus for number of entities matched
         entity_count_bonus = min(len(entity_matches) * 0.2, 1.0)
         
         return entity_ratio + entity_count_bonus
@@ -354,23 +354,23 @@ class ImprovedScoring:
         if not sentence_text or not claim_text:
             return 0.0
             
-        # 1. Length appropriateness (không quá ngắn hoặc quá dài)
+        # 1. Length appropriateness (not too short or too long)
         sentence_len = len(sentence_text.split())
         claim_len = len(claim_text.split())
         
-        if sentence_len < 3:  # Quá ngắn
+        if sentence_len < 3:  # Too short
             length_score = 0.2
-        elif sentence_len > claim_len * 3:  # Quá dài
+        elif sentence_len > claim_len * 3:  # Too long
             length_score = 0.6
         else:
             length_score = 1.0
             
-        # 2. Information density (số từ có nghĩa)
+        # 2. Information density (number of meaningful words)
         meaningful_words = [word for word in sentence_text.lower().split() 
                           if len(word) > 2 and word.isalpha()]
         density_score = min(len(meaningful_words) / max(sentence_len, 1), 1.0)
         
-        # 3. Sentence structure score (có chứa các từ kết nối, động từ, etc.)
+        # 3. Sentence structure score (contains connecting words, verbs, etc.)
         structure_score = self._sentence_structure_score(sentence_text)
         
         # Combine scores
@@ -388,12 +388,12 @@ class ImprovedScoring:
         """
         ✅ ENHANCED: Tính score bao gồm cả contradiction detection
         """
-        # Base score từ method cũ
+        # Base score from old method
         base_score = self.calculate_enhanced_score(
             claim_text, claim_words, path_words, sentence_texts, entity_count, path_length, claim_entities
         )
         
-        # ✅ MỚI: Contradiction và Negation scoring
+        # ✅ NEW: Contradiction and Negation scoring
         contradiction_bonus = 0.0
         
         for sentence_text in sentence_texts:
@@ -431,7 +431,7 @@ class ImprovedScoring:
         semantic_score = self.semantic_similarity_score(claim_words, path_words)
         total_score += semantic_score * self.semantic_match_weight
         
-        # 3. Fuzzy matching với sentences
+        # 3. Fuzzy matching with sentences
         if sentence_texts:
             max_fuzzy_score = 0.0
             claim_entity_boost = 0.0
@@ -440,25 +440,25 @@ class ImprovedScoring:
                 fuzzy_score = self.fuzzy_text_similarity(claim_text, sentence_text)
                 quality_score = self.sentence_quality_score(sentence_text, claim_text)
                 
-                # ✅ MỚI: Boost cho sentences chứa claim entities
+                # ✅ NEW: Boost for sentences containing claim entities
                 entity_boost = 0.0
                 if claim_entities:
                     sentence_lower = sentence_text.lower()
                     claim_entity_matches = sum(1 for entity in claim_entities if entity.lower() in sentence_lower)
-                    entity_boost = (claim_entity_matches / len(claim_entities)) * 0.5  # Boost tối đa 0.5
+                    entity_boost = (claim_entity_matches / len(claim_entities)) * 0.5  # Maximum boost 0.5
                 
                 combined_sentence_score = (fuzzy_score + quality_score + entity_boost) / 2
                 max_fuzzy_score = max(max_fuzzy_score, combined_sentence_score)
                 claim_entity_boost = max(claim_entity_boost, entity_boost)
                 
             total_score += max_fuzzy_score * self.fuzzy_match_weight
-            # Thêm bonus riêng cho claim entities
+            # Add separate bonus for claim entities
             total_score += claim_entity_boost * 2.0
             
         # 4. Entity bonus
         total_score += entity_count * self.entity_bonus
         
-        # 5. Length penalty (giảm)
+        # 5. Length penalty (reduced)
         total_score -= path_length * self.length_penalty
         
         # 6. Sentence count bonus
@@ -469,7 +469,7 @@ class ImprovedScoring:
         
     def _normalize_text(self, text: str) -> str:
         """Normalize text để so sánh"""
-        # Lowercase và remove extra spaces
+        # Lowercase and remove extra spaces
         text = text.lower().strip()
         # Remove punctuation
         text = re.sub(r'[^\w\s]', ' ', text)
@@ -517,7 +517,7 @@ class ImprovedScoring:
         
     def _sentence_structure_score(self, sentence: str) -> float:
         """Đánh giá cấu trúc câu"""
-        # Các từ kết nối và quan trọng
+        # Connecting and important words
         connectors = {'và', 'nhưng', 'tuy nhiên', 'do đó', 'vì vậy', 'bởi vì', 'nếu', 'khi', 'mà', 'để'}
         verbs_indicators = {'là', 'có', 'được', 'sẽ', 'đã', 'đang', 'bị', 'cho', 'từ', 'trong'}
         

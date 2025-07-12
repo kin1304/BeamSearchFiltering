@@ -1,104 +1,104 @@
 # MINT - Text Graph Library
 
-MINT (Text Graph Library) là một thư viện Python để xây dựng và phân tích đồ thị văn bản từ tiếng Việt sử dụng py_vncorenlp.
+MINT (Text Graph Library) is a Python library for building and analyzing text graphs from Vietnamese text using py_vncorenlp.
 
-## 🚀 Tính năng chính
+## 🚀 Key Features
 
-### Xây dựng đồ thị văn bản
-- **Word nodes**: Chứa từng từ trong context và claim với thông tin POS tag, lemma
-- **Sentence nodes**: Các câu trong context
-- **Claim node**: Nội dung claim cần kiểm tra
+### Text Graph Building
+- **Word nodes**: Contains each word in context and claim with POS tag, lemma information
+- **Sentence nodes**: Sentences in context
+- **Claim node**: Claim content to be verified
 
-### Phân tích thông minh
-- ✅ Tìm từ chung giữa context và claim
-- ✅ Thống kê tần suất từ
-- ✅ Phân tích cấu trúc đồ thị
-- ✅ Xuất dữ liệu ra JSON
-- ✅ Lưu/tải đồ thị
+### Intelligent Analysis
+- ✅ Find common words between context and claim
+- ✅ Word frequency statistics
+- ✅ Graph structure analysis
+- ✅ Export data to JSON
+- ✅ Save/load graphs
 
 ### Visualization
-- ✅ Vẽ đồ thị với màu sắc phân biệt các loại node
+- ✅ Draw graphs with colors distinguishing different node types
 - ✅ Interactive graph layout
 
-## 📦 Cài đặt
+## 📦 Installation
 
 ```bash
 pip install py_vncorenlp networkx matplotlib numpy
 ```
 
-## 🔧 Sử dụng cơ bản
+## 🔧 Basic Usage
 
 ```python
 from mint import TextGraph
 import py_vncorenlp
 
-# Khởi tạo model
+# Initialize model
 model = py_vncorenlp.VnCoreNLP(save_dir="vncorenlp")
 
-# Dữ liệu
-context = "Văn bản context..."
-claim = "Văn bản claim..."
+# Data
+context = "Context text..."
+claim = "Claim text..."
 
-# Xử lý với py_vncorenlp
+# Process with py_vncorenlp
 context_sentences = model.annotate_text(context)
 claim_sentences = model.annotate_text(claim)
 
-# Tạo đồ thị
+# Create graph
 text_graph = TextGraph()
 text_graph.build_from_vncorenlp_output(context_sentences, claim, claim_sentences)
 
-# Thống kê
+# Statistics
 stats = text_graph.get_detailed_statistics()
-print(f"Tổng nodes: {stats['total_nodes']}")
-print(f"Từ chung: {stats['shared_words_count']}")
+print(f"Total nodes: {stats['total_nodes']}")
+print(f"Shared words: {stats['shared_words_count']}")
 
-# Vẽ đồ thị
+# Visualize graph
 text_graph.visualize()
 ```
 
-## 📊 Các phương thức chính
+## 📊 Main Methods
 
-### Xây dựng đồ thị
-- `build_from_vncorenlp_output()`: Xây dựng đồ thị từ output của py_vncorenlp
-- `add_word_node()`: Thêm word node
-- `add_sentence_node()`: Thêm sentence node
-- `add_claim_node()`: Thêm claim node
+### Graph Building
+- `build_from_vncorenlp_output()`: Build graph from py_vncorenlp output
+- `add_word_node()`: Add word node
+- `add_sentence_node()`: Add sentence node
+- `add_claim_node()`: Add claim node
 
-### Phân tích
-- `get_statistics()`: Thống kê cơ bản
-- `get_detailed_statistics()`: Thống kê chi tiết
-- `get_shared_words()`: Tìm từ chung
-- `get_word_frequency()`: Thống kê tần suất từ
+### Analysis
+- `get_statistics()`: Basic statistics
+- `get_detailed_statistics()`: Detailed statistics
+- `get_shared_words()`: Find common words
+- `get_word_frequency()`: Word frequency statistics
 
 ### I/O
-- `save_graph()`: Lưu đồ thị ra file GEXF
-- `load_graph()`: Tải đồ thị từ file
-- `export_to_json()`: Xuất ra JSON
+- `save_graph()`: Save graph to GEXF file
+- `load_graph()`: Load graph from file
+- `export_to_json()`: Export to JSON
 
 ### Visualization
-- `visualize()`: Vẽ đồ thị
+- `visualize()`: Draw graph
 
-## 🎯 Ứng dụng cho Fact-checking
+## 🎯 Applications for Fact-checking
 
-Thư viện này được thiết kế đặc biệt cho các ứng dụng fact-checking:
+This library is specifically designed for fact-checking applications:
 
-1. **Semantic Similarity**: So sánh độ tương đồng giữa claim và context
-2. **Evidence Detection**: Tìm evidence supporting/contradicting
-3. **Linguistic Analysis**: Phân tích cấu trúc ngôn ngữ
-4. **Feature Extraction**: Trích xuất features cho ML models
+1. **Semantic Similarity**: Compare similarity between claim and context
+2. **Evidence Detection**: Find supporting/contradicting evidence
+3. **Linguistic Analysis**: Analyze language structure
+4. **Feature Extraction**: Extract features for ML models
 
-## 📈 Mở rộng
+## 📈 Extensions
 
-Thư viện được thiết kế modular, dễ dàng mở rộng:
+The library is designed to be modular and easily extensible:
 
-- Thêm các loại node mới (Entity, Relation, etc.)
-- Tích hợp thêm NLP tools
-- Xây dựng các metric similarity tùy chỉnh
-- Hỗ trợ thêm định dạng export/import
+- Add new node types (Entity, Relation, etc.)
+- Integrate additional NLP tools
+- Build custom similarity metrics
+- Support additional export/import formats
 
-## 🤝 Đóng góp
+## 🤝 Contributing
 
-Mọi đóng góp đều được hoan nghênh! Hãy tạo issue hoặc pull request.
+All contributions are welcome! Please create issues or pull requests.
 
 ## 📄 License
 

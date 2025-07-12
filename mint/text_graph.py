@@ -1,9 +1,9 @@
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
 import os
 import json
-from openai import OpenAI
 from dotenv import load_dotenv
 import numpy as np
 from transformers import AutoTokenizer, AutoModel
@@ -12,16 +12,9 @@ import faiss
 from .beam_search import BeamSearchPathFinder
 import unicodedata
 import re
-from difflib import SequenceMatcher
 from typing import List, Dict
 
-try:
-    from mint.helpers import segment_entity_with_vncorenlp
-except ImportError:
-    try:
-        from process_with_beam_search_fixed import segment_entity_with_vncorenlp
-    except ImportError:
-        segment_entity_with_vncorenlp = None
+
 
 try:
     from sklearn.metrics.pairwise import cosine_similarity
@@ -43,8 +36,6 @@ class TextGraph:
         self.word_nodes = {}
         self.sentence_nodes = {}
         self.claim_node = None
-        self.entity_nodes = {}  # Add dictionary to manage entity nodes
-        self.claim_entities = set()  # ✅ NEW: Store claim entities for scoring
         
         # POS tag filtering configuration
         self.enable_pos_filtering = True  # Default enabled to reduce noise
@@ -61,8 +52,6 @@ class TextGraph:
         
         # Load environment variables
         load_dotenv()
-        self.openai_client = None
-        self._init_openai_client()
         
         # Semantic similarity components
         self.phobert_tokenizer = None
@@ -190,8 +179,11 @@ class TextGraph:
                 head_index = token.get("head", 0)
                 dep_label = token.get("depLabel", "")
                 
-                # Only create dependency if both dependent and head exist in mapping
-                if (head_index > 0 and 
+                try:
+                    head_index_int = int(head_index)
+                except (ValueError, TypeError):
+                    head_index_int = -1
+                if (head_index_int > 0 and 
                     token_index in token_index_to_node and 
                     head_index in token_index_to_node):
                     dependent_node = token_index_to_node[token_index]
@@ -224,8 +216,11 @@ class TextGraph:
                 head_index = token.get("head", 0)
                 dep_label = token.get("depLabel", "")
                 
-                # Only create dependency if both dependent and head exist in mapping
-                if (head_index > 0 and 
+                try:
+                    head_index_int = int(head_index)
+                except (ValueError, TypeError):
+                    head_index_int = -1
+                if (head_index_int > 0 and 
                     token_index in claim_token_index_to_node and 
                     head_index in claim_token_index_to_node):
                     dependent_node = claim_token_index_to_node[token_index]
@@ -237,15 +232,13 @@ class TextGraph:
         word_count = len([n for n in self.graph.nodes() if self.graph.nodes[n]['type'] == 'word'])
         sentence_count = len([n for n in self.graph.nodes() if self.graph.nodes[n]['type'] == 'sentence'])
         claim_count = len([n for n in self.graph.nodes() if self.graph.nodes[n]['type'] == 'claim'])
-        entity_count = len([n for n in self.graph.nodes() if self.graph.nodes[n]['type'] == 'entity'])
         
         return {
             "total_nodes": self.graph.number_of_nodes(),
             "total_edges": self.graph.number_of_edges(),
             "word_nodes": word_count,
             "sentence_nodes": sentence_count,
-            "claim_nodes": claim_count,
-            "entity_nodes": entity_count
+            "claim_nodes": claim_count
         }
     
     def get_shared_words(self):
@@ -342,25 +335,6 @@ class TextGraph:
             if data.get('edge_type') == 'structural'
         ])
         
-        entity_structural_edges = len([
-            (u, v) for u, v, data in self.graph.edges(data=True) 
-            if data.get('edge_type') == 'entity_structural'
-        ])
-        
-        # Statistics about entities
-        entity_list = [
-            {
-                'name': self.graph.nodes[node_id]['text'],
-                'type': self.graph.nodes[node_id].get('entity_type', 'ENTITY'),
-                'connected_sentences': len([
-                    neighbor for neighbor in self.graph.neighbors(node_id) 
-                    if self.graph.nodes[neighbor]['type'] == 'sentence'
-                ])
-            }
-            for node_id in self.graph.nodes() 
-            if self.graph.nodes[node_id]['type'] == 'entity'
-        ]
-        
         return {
             **basic_stats,
             "shared_words_count": len(shared_words),
@@ -371,15 +345,12 @@ class TextGraph:
             "dependency_statistics": dep_stats,
             "structural_edges": structural_edges,
             "dependency_edges": dep_stats["total_dependency_edges"],
-            "entity_structural_edges": entity_structural_edges,
-            "entities": entity_list,
-            "unique_entities": len(entity_list),
             "semantic_statistics": semantic_stats,
             "semantic_edges": semantic_stats["total_semantic_edges"]
         }
     
     def visualize(self, figsize=(15, 10), show_dependencies=True, show_semantic=True):
-        """Visualize the graph with separate colors for structural, dependency, entity, and semantic edges"""
+        """Visualize the graph with separate colors for structural, dependency, and semantic edges"""
         plt.figure(figsize=figsize)
         
         # Define colors for different node types
@@ -396,9 +367,6 @@ class TextGraph:
             elif node_type == 'claim':
                 node_colors.append('lightcoral')
                 node_sizes.append(600)
-            elif node_type == 'entity':
-                node_colors.append('gold')
-                node_sizes.append(400)
         
         # Create layout
         pos = nx.spring_layout(self.graph, k=2, iterations=100)
@@ -406,7 +374,6 @@ class TextGraph:
         # Divide edges by type
         structural_edges = []
         dependency_edges = []
-        entity_edges = []
         semantic_edges = []
         
         for u, v, data in self.graph.edges(data=True):
@@ -415,8 +382,6 @@ class TextGraph:
                 structural_edges.append((u, v))
             elif edge_type == 'dependency':
                 dependency_edges.append((u, v))
-            elif edge_type == 'entity_structural':
-                entity_edges.append((u, v))
             elif edge_type == 'semantic':
                 semantic_edges.append((u, v))
         
@@ -435,14 +400,7 @@ class TextGraph:
                                  width=1,
                                  alpha=0.6)
         
-        # Draw entity edges (entity -> sentence)
-        if entity_edges:
-            nx.draw_networkx_edges(self.graph, pos,
-                                 edgelist=entity_edges,
-                                 edge_color='orange',
-                                 style='-',
-                                 width=2,
-                                 alpha=0.7)
+
         
         # Draw semantic edges (word -> word)
         if show_semantic and semantic_edges:
@@ -468,25 +426,22 @@ class TextGraph:
         legend_elements = [
             mpatches.Patch(color='lightblue', label='Word nodes'),
             mpatches.Patch(color='lightgreen', label='Sentence nodes'),
-            mpatches.Patch(color='lightcoral', label='Claim node'),
-            mpatches.Patch(color='gold', label='Entity nodes')
+            mpatches.Patch(color='lightcoral', label='Claim node')
         ]
         
         edge_legend = []
         if structural_edges:
-            edge_legend.append(plt.Line2D([0], [0], color='gray', label='Structural edges'))
-        if entity_edges:
-            edge_legend.append(plt.Line2D([0], [0], color='orange', label='Entity edges'))
+            edge_legend.append(mlines.Line2D([0], [0], color='gray', label='Structural edges'))
         if show_semantic and semantic_edges:
-            edge_legend.append(plt.Line2D([0], [0], color='purple', linestyle=':', label='Semantic edges'))
+            edge_legend.append(mlines.Line2D([0], [0], color='purple', linestyle=':', label='Semantic edges'))
         if show_dependencies and dependency_edges:
-            edge_legend.append(plt.Line2D([0], [0], color='red', linestyle='--', label='Dependency edges'))
+            edge_legend.append(mlines.Line2D([0], [0], color='red', linestyle='--', label='Dependency edges'))
         
         legend_elements.extend(edge_legend)
         
         plt.legend(handles=legend_elements, loc='upper right')
         
-        title = f"Text Graph: Words, Sentences, Claim, Entities ({len(self.entity_nodes)} entities)"
+        title = f"Text Graph: Words, Sentences, Claim"
         if show_semantic and semantic_edges:
             title += f", Semantic ({len(semantic_edges)} edges)"
         if show_dependencies and dependency_edges:
@@ -583,7 +538,6 @@ class TextGraph:
         # Rebuild node mappings
         self.word_nodes = {}
         self.sentence_nodes = {}
-        self.entity_nodes = {}
         self.claim_node = None
         
         for node_id in self.graph.nodes():
@@ -596,8 +550,6 @@ class TextGraph:
                 self.sentence_nodes[sent_idx] = node_id
             elif node_data['type'] == 'claim':
                 self.claim_node = node_id
-            elif node_data['type'] == 'entity':
-                self.entity_nodes[node_data['text']] = node_id
         
         print(f"Graph loaded from: {filepath}")
     
@@ -632,152 +584,10 @@ class TextGraph:
         
         return json.dumps(graph_data, ensure_ascii=False, indent=2)
     
-    def _init_openai_client(self):
-        """Initialize OpenAI client"""
-        try:
-            # Try multiple key names for backward compatibility
-            api_key = os.getenv('OPENAI_KEY') or os.getenv('OPENAI_API_KEY')
-            if api_key and api_key != 'your_openai_api_key_here':
-                self.openai_client = OpenAI(api_key=api_key)
-                # Only print once globally
-                if not hasattr(TextGraph, '_openai_initialized'):
-                    print("✅ OpenAI client initialized")
-                    TextGraph._openai_initialized = True
-            else:
-                if not hasattr(self, '_openai_warning_shown'):
-                    print("Warning: OPENAI_KEY or OPENAI_API_KEY not found in .env file.")
-                    self._openai_warning_shown = True
-        except Exception as e:
-            print(f"Error initializing OpenAI client: {e}")
     
-    def add_entity_node(self, entity_name, entity_type="ENTITY"):
-        """Add entity node to graph"""
-        if entity_name not in self.entity_nodes:
-            node_id = f"entity_{len(self.entity_nodes)}"
-            self.entity_nodes[entity_name] = node_id
-            self.graph.add_node(node_id, 
-                              type="entity", 
-                              text=entity_name,
-                              entity_type=entity_type)
-        return self.entity_nodes[entity_name]
     
-    def connect_entity_to_sentence(self, entity_node, sentence_node):
-        """Connect entity to sentence"""
-        self.graph.add_edge(entity_node, sentence_node, relation="mentioned_in", edge_type="entity_structural")
-    
-    def _update_openai_model(self, model=None, temperature=None, max_tokens=None):
-        """Update OpenAI model parameters"""
-        if model:
-            self.openai_model = model
-        if temperature is not None:
-            self.openai_temperature = temperature  
-        if max_tokens is not None:
-            self.openai_max_tokens = max_tokens
-    
-    def extract_entities_with_openai(self, context_text):
-        """Extract entities from context using OpenAI GPT-4o-mini"""
-        if not self.openai_client:
-            print("OpenAI client not initialized. Unable to extract entities.")
-            return []
-        
-        try:
-            # Prompt to extract entities including date and quantity
-            prompt = f"""
-Bạn là một chuyên gia trích xuất thông tin cho hệ thống fact-checking. Hãy trích xuất tất cả các thực thể quan trọng từ văn bản sau, bao gồm CẢ NGÀY THÁNG và SỐ LƯỢNG QUAN TRỌNG.
-Quan trọng, chỉ lấy những từ có trong văn bản, không lấy những từ không có trong văn bản. Nếu trích xuất được các từ thì phải để nó giống y như trong văn bản không được thay đổi.
 
-NGUYÊN TẮC TRÍCH XUẤT:
-- Lấy TÊN THỰC THỂ THUẦN TÚY + NGÀY THÁNG + SỐ LƯỢNG QUAN TRỌNG
-- Loại bỏ từ phân loại không cần thiết: "con", "chiếc", "cái", "người" (trừ khi là phần của tên riêng)
-- Giữ nguyên số đo lường có ý nghĩa thực tế
-YÊU CẦU:
-Chỉ lấy những từ/cụm từ xuất hiện trong văn bản, giữ nguyên chính tả, không tự thêm hoặc sửa đổi.
-Với mỗi thực thể, chỉ lấy một lần (không lặp lại), kể cả xuất hiện nhiều lần trong văn bản.
-Nếu thực thể là một phần của cụm danh từ lớn hơn (ví dụ: "đoàn cứu hộ Việt Nam"), hãy trích xuất cả cụm danh từ lớn ("đoàn cứu hộ Việt Nam") và thực thể nhỏ bên trong ("Việt Nam").
-Không bỏ sót thực thể chỉ vì nó nằm trong cụm từ khác hoặc là một phần của tên dài.
 
-Các loại thực thể CẦN trích xuất:
-1. **Tên loài/sinh vật**: "Patagotitan mayorum", "titanosaur", "voi châu Phi"
-2. **Địa danh**: "Argentina", "London", "Neuquen", "TP.HCM", "Quận 6"
-3. **Địa danh kết hợp**: "Bảo tàng Lịch sử tự nhiên London", "Nhà máy nước Tân Hiệp"
-4. **Tên riêng người**: "Nguyễn Văn A", "Phạm Văn Chính", "Sinead Marron"
-5. **Tổ chức**: "Bảo tàng Lịch sử tự nhiên", "SAWACO", "Microsoft", "PLO"
-6. **Sản phẩm/công nghệ**: "iPhone", "ChatGPT", "PhoBERT", "dịch vụ cấp nước"
-
-7. **NGÀY THÁNG & THỜI GIAN QUAN TRỌNG**:
-   - Năm: "2010", "2017", "2022"
-   - Ngày tháng: "25-3", "15/4/2023", "ngày 10 tháng 5"
-   - Giờ cụ thể: "22 giờ", "6h30", "14:30"
-   - Khoảng thời gian: "từ 22 giờ đến 6 giờ", "2-3 ngày"
-
-8. **SỐ LƯỢNG & ĐO LƯỜNG QUAN TRỌNG**:
-   - Kích thước vật lý: "37m", "69 tấn", "6m", "180cm"
-   - Số lượng có ý nghĩa: "6 con", "12 con", "100 người"  
-   - Giá trị tiền tệ: "5 triệu đồng", "$100", "€50"
-   - Tỷ lệ phần trăm: "80%", "15%"
-   - Nhiệt độ: "25°C", "100 độ"
-
-KHÔNG lấy (số lượng không có ý nghĩa):
-- Số thứ tự đơn lẻ: "1", "2", "3" (trừ khi là năm hoặc địa chỉ)
-- Từ chỉ số lượng mơ hồ: "nhiều", "ít", "vài", "một số"
-- Đơn vị đo đơn lẻ: "mét", "tấn", "kg" (phải có số đi kèm)
-
-Ví dụ INPUT: "6 con titanosaur ở Argentina nặng 69 tấn, được trưng bày tại Bảo tàng Lịch sử tự nhiên London từ năm 2017 lúc 14:30"
-Ví dụ OUTPUT: ["titanosaur", "Argentina", "69 tấn", "Bảo tàng Lịch sử tự nhiên London", "2017", "14:30", "6 con"]
-
-Ví dụ INPUT: "SAWACO thông báo cúp nước tại Quận 6 từ 22 giờ ngày 25-3 đến 6 giờ ngày 26-3"
-Ví dụ OUTPUT: ["SAWACO", "Quận 6", "22 giờ", "25-3", "6 giờ", "26-3"]
-
-Trả về JSON array: ["entity1", "entity2", "entity3"]
-
-Văn bản:
-{context_text}
-"""
-
-            # Use parameters from CLI if available
-            model = getattr(self, 'openai_model', 'gpt-4o-mini')
-            temperature = getattr(self, 'openai_temperature', 0.0)
-            max_tokens = getattr(self, 'openai_max_tokens', 1000)
-
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0,
-                max_tokens=max_tokens
-            )
-            
-            # Parse response
-            response_text = response.choices[0].message.content.strip()
-            
-            # Strip markdown code blocks if present
-            if response_text.startswith('```json'):
-                response_text = response_text[7:]  # Remove '```json'
-            if response_text.startswith('```'):
-                response_text = response_text[3:]   # Remove '```'
-            if response_text.endswith('```'):
-                response_text = response_text[:-3]  # Remove ending '```'
-            response_text = response_text.strip()
-            
-            # Try to parse JSON
-            try:
-                entities = json.loads(response_text)
-                if isinstance(entities, list):
-                    # Filter out empty strings and duplicates
-                    entities = list(set([entity.strip() for entity in entities if entity.strip()]))
-                    print(f"Extracted {len(entities)} entities: {entities}")
-                    return entities
-                else:
-                    print(f"Response is not a list: {response_text}")
-                    return []
-            except json.JSONDecodeError:
-                print(f"Failed to parse JSON from OpenAI response: {response_text}")
-                return []
-                
-        except Exception as e:
-            print(f"Error calling OpenAI API: {e}")
-            return []
     
     def normalize_text(self, text):
         if not text:
@@ -790,133 +600,13 @@ Văn bản:
         text = re.sub(r'\s+', ' ', text).strip()
         return text
 
-    def fuzzy_in(self, entity, claim_text, threshold=0.8):
-        # Fuzzy match: entity appears close to claim_text
-        if entity in claim_text:
-            return True
-        # If entity is a phrase, check each word
-        for word in entity.split():
-            if word in claim_text:
-                return True
-        # Fuzzy match for entire string
-        ratio = SequenceMatcher(None, entity, claim_text).ratio()
-        return ratio >= threshold
 
-    def improved_entity_matching(self, entity, sentence_text, model=None):
-        entity_lower = entity.lower()
-        sentence_lower = sentence_text.lower()
-        # Method 1: Direct matching
-        if entity_lower in sentence_lower:
-            return True
-        # Method 2: Simple space->underscore replacement
-        entity_simple_seg = entity.replace(" ", "_").lower()
-        if entity_simple_seg in sentence_lower:
-            return True
-        # Method 3: VnCoreNLP segmentation
-        if model and segment_entity_with_vncorenlp:
-            try:
-                entity_vncorenlp_seg = segment_entity_with_vncorenlp(entity, model).lower()
-                if entity_vncorenlp_seg in sentence_lower:
-                    return True
-            except:
-                pass
-        # Method 4: Fuzzy matching for partial matches
-        entity_words = entity.split()
-        if len(entity_words) > 1:
-            all_words_found = True
-            for word in entity_words:
-                word_variants = [
-                    word.lower(),
-                    word.replace(" ", "_").lower()
-                ]
-                word_found = any(variant in sentence_lower for variant in word_variants)
-                if not word_found:
-                    all_words_found = False
-                    break
-            if all_words_found:
-                return True
-        return False
 
-    def add_entities_to_graph(self, entities, context_sentences, model=None):
-        """Add entities to graph and connect them to sentences with improved matching. If entity appears in claim, connect to claim node."""
-        entity_nodes_added = []
-        total_connections = 0
-        # Get claim text (if there is a claim node)
-        claim_text = None
-        if hasattr(self, 'claim_node') and self.claim_node and self.claim_node in self.graph.nodes:
-            claim_text = self.graph.nodes[self.claim_node]['text']
-            claim_text_norm = self.normalize_text(claim_text)
-        else:
-            claim_text_norm = None
-        for entity in entities:
-            # Add entity node
-            entity_node = self.add_entity_node(entity)
-            entity_nodes_added.append(entity_node)
-            entity_connections = 0
-            # Find sentences containing this entity
-            for sent_idx, sentence_node in self.sentence_nodes.items():
-                sentence_text = self.graph.nodes[sentence_node]['text']
-                if self.improved_entity_matching(entity, sentence_text, model):
-                    self.connect_entity_to_sentence(entity_node, sentence_node)
-                    entity_connections += 1
-                    total_connections += 1
-            # Connect entity to claim if entity appears in claim (enhanced: fuzzy comparison)
-            # Mark entities appearing in claim with higher weight
-            is_claim_entity = False
-            if claim_text_norm:
-                entity_norm = self.normalize_text(entity)
-                if self.fuzzy_in(entity_norm, claim_text_norm, threshold=0.8):
-                    self.graph.add_edge(entity_node, self.claim_node, relation="mentioned_in", edge_type="entity_structural")
-                    is_claim_entity = True
-                    # Mark this entity as appearing in claim for scoring
-                    self.graph.nodes[entity_node]['in_claim'] = True
-                    self.graph.nodes[entity_node]['claim_importance'] = 2.0  # Higher weight
-        # ✅ NEW: Directly connect sentences to claim by similarity
-        self._connect_sentences_to_claim_by_similarity(claim_text)  # DISABLED: No direct sentence-claim connections
-        
-        print(f"✅ Added {len(entity_nodes_added)} entity nodes to graph")
-        return entity_nodes_added
+
+
     
-    def _connect_sentences_to_claim_by_similarity(self, claim_text):
-        """Directly connect sentences to claim by text similarity"""
-        if not claim_text or not self.sentence_nodes:
-            return
-        
-        claim_words = set(self.normalize_text(claim_text).split())
-        connections_added = 0
-        
-        for sent_idx, sentence_node in self.sentence_nodes.items():
-            sentence_text = self.graph.nodes[sentence_node]['text']
-            sentence_words = set(self.normalize_text(sentence_text).split())
-            
-            # Calculate word overlap ratio
-            overlap = len(claim_words.intersection(sentence_words))
-            total_words = len(claim_words.union(sentence_words))
-            similarity = overlap / total_words if total_words > 0 else 0.0
-            
-            # Connect to claim if similarity is high enough
-            if similarity >= 0.15:  # Threshold 15%
-                self.graph.add_edge(sentence_node, self.claim_node, 
-                                  relation="text_similar", 
-                                  edge_type="semantic",
-                                  similarity=similarity)
-                connections_added += 1
-        
-        print(f"🔗 Connected {connections_added} sentences to claim by text similarity (threshold=0.15)")
+
     
-    def extract_and_add_entities(self, context_text, context_sentences):
-        """Main method to extract and add entities to graph"""
-        print("Extracting entities from OpenAI...")
-        entities = self.extract_entities_with_openai(context_text)
-        
-        if entities:
-            print("Adding entities to graph...")
-            entity_nodes = self.add_entities_to_graph(entities, context_sentences)
-            print(f"Done! Added {len(entity_nodes)} entities to graph.")
-            return entity_nodes
-        else:
-            print("No entities extracted.")
-            return []
     
     def _init_phobert_model(self):
         """Initialize PhoBERT model"""
@@ -1230,8 +920,6 @@ Văn bản:
             node.startswith('sentence') for node in p.nodes
         ))
         
-        entities_visited = sum(1 for p in paths if p.entities_visited)
-        
         return {
             'total_paths': total_paths,
             'avg_score': sum(scores) / total_paths if scores else 0,
@@ -1241,9 +929,7 @@ Văn bản:
             'max_length': max(lengths) if lengths else 0,
             'min_length': min(lengths) if lengths else 0,
             'paths_to_sentences': sentences_reached,
-            'paths_through_entities': entities_visited,
-            'sentence_reach_rate': sentences_reached / total_paths if total_paths > 0 else 0,
-            'entity_visit_rate': entities_visited / total_paths if total_paths > 0 else 0
+            'sentence_reach_rate': sentences_reached / total_paths if total_paths > 0 else 0
         }
     
     def multi_level_beam_search_paths(
@@ -1345,379 +1031,7 @@ Văn bản:
         
         return multi_results 
 
-    def extract_claim_keywords_with_openai(self, claim_text):
-        """Extract important keywords from claim to create additional entities"""
-        if not self.openai_client:
-            print("OpenAI client not initialized. Unable to extract claim keywords.")
-            return []
-        
-        try:
-            prompt = f"""
-Bạn là chuyên gia phân tích ngôn ngữ cho hệ thống fact-checking. Hãy trích xuất TẤT CẢ các từ khóa quan trọng từ câu claim dưới đây.
 
-MÔ HÌNH TRÍCH XUẤT:
-1. **CHỦ THỂ CHÍNH** (ai/cái gì): tên người, tổ chức, sản phẩm, loài vật, địa danh
-2. **HÀNH ĐỘNG/ĐỘNG TỪ** quan trọng: sử dụng, phát triển, tạo ra, giải mã, hiểu, giao tiếp
-3. **ĐỐI TƯỢNG/KHÁI NIỆM** quan trọng: công nghệ, khoa học, nghiên cứu, phương pháp
-4. **TÍNH CHẤT/TRẠNG THÁI**: mới, hiện đại, tiên tiến, thành công
-
-NGUYÊN TẮC TRÍCH XUẤT:
-- Lấy CHÍNH XÁC từ/cụm từ có trong claim
-- Lấy cả từ đơn lẻ VÀ cụm từ có ý nghĩa
-- Tập trung vào từ khóa có thể fact-check được
-- Không thêm từ không có trong claim
-
-VÍ DỤ:
-INPUT: "Tận dụng công nghệ mới để hiểu giao tiếp của động vật"
-OUTPUT: ["tận dụng", "công nghệ", "công nghệ mới", "hiểu", "giao tiếp", "động vật", "giao tiếp của động vật"]
-
-INPUT: "Thay vì cố gắng dạy chim nói tiếng Anh, các nhà nghiên cứu đang giải mã những gì chúng nói với nhau bằng tiếng chim"
-OUTPUT: ["thay vì", "cố gắng", "dạy", "chim", "nói", "tiếng Anh", "nhà nghiên cứu", "giải mã", "tiếng chim", "giao tiếp", "dạy chim nói tiếng Anh", "nhà nghiên cứu giải mã", "chim nói"]
-
-INPUT: "Nhà khoa học Việt Nam phát triển AI để dự báo thời tiết"
-OUTPUT: ["nhà khoa học", "Việt Nam", "nhà khoa học Việt Nam", "phát triển", "AI", "dự báo", "thời tiết", "dự báo thời tiết"]
-
-INPUT: "Apple sử dụng chip M1 mới trong MacBook Pro 2021"
-OUTPUT: ["Apple", "sử dụng", "chip", "M1", "chip M1", "mới", "MacBook Pro", "2021", "MacBook Pro 2021"]
-
-Trả về JSON array với tất cả keywords quan trọng: ["keyword1", "keyword2", ...]
-
-CLAIM: {claim_text}
-"""
-
-            model = getattr(self, 'openai_model', 'gpt-4o-mini')
-            temperature = getattr(self, 'openai_temperature', 0.0)
-            max_tokens = getattr(self, 'openai_max_tokens', 500)
-
-            response = self.openai_client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0,
-                max_tokens=max_tokens
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            # Strip markdown code blocks if present
-            if response_text.startswith('```json'):
-                response_text = response_text[7:]
-            if response_text.startswith('```'):
-                response_text = response_text[3:]
-            if response_text.endswith('```'):
-                response_text = response_text[:-3]
-            response_text = response_text.strip()
-            
-            try:
-                keywords = json.loads(response_text)
-                if isinstance(keywords, list):
-                    keywords = list(set([kw.strip() for kw in keywords if kw.strip()]))
-                    return keywords
-                else:
-                    return []
-            except json.JSONDecodeError:
-                return []
-                
-        except Exception as e:
-            return []
-
-    def extract_enhanced_entities_with_openai(self, context_text, claim_text):
-        """Enhanced entity extraction: 2 separate prompting approaches then combine"""
-        
-        print(f"🎯 DEBUG CLAIM TEXT: {claim_text}")
-        
-        # 🔧 PREPROCESS: Clean up VnCoreNLP format (remove underscores)
-        if context_text:
-            context_clean = context_text.replace("_", " ").strip()
-        else:
-            context_clean = ""
-            
-        claim_clean = claim_text.replace("_", " ").strip() if claim_text else ""
-        print(f"🎯 DEBUG CLAIM CLEAN: {claim_clean}")
-        
-        # 🎯 PROMPTING 1: Extract entities from context + claim (original approach)
-        context_claim_entities = []
-        if context_clean and len(context_clean.strip()) > 10:
-            try:
-                # Use improved context entity extraction 
-                context_entities = self.extract_context_entities_improved(context_clean)
-                # Combine with claim entities extracted separately
-                context_claim_entities = context_entities
-                # Debug context entities extracted
-            except Exception as e:
-                print(f"⚠️ Context entity extraction failed: {e}")
-                pass
-        
-        # 🎯 PROMPTING 2: Extract detailed keywords from claim only
-        claim_keywords = []
-        if claim_clean:
-            try:
-                claim_keywords = self.extract_claim_keywords_with_openai(claim_clean)
-                # Debug claim keywords extracted
-            except Exception as e:
-                pass
-        
-        # 🔗 Step 3: Combine two separate arrays then deduplicate
-        # Combine and deduplicate
-        all_entities = list(set(context_claim_entities + claim_keywords))
-        
-        # ✅ NEW: Store claim entities for scoring
-        self.claim_entities = set(claim_keywords)  # Store claim keywords as claim entities
-        # Claim entities saved for scoring boost
-        
-        # 🆕 Store entities globally for multi-hop reuse
-        if not hasattr(self, 'global_entities'):
-            self.global_entities = []
-        
-        # Add new entities to global pool
-        new_entities = [e for e in all_entities if e not in self.global_entities]
-        self.global_entities.extend(new_entities)
-        
-        return all_entities
-
-    def extract_context_entities_improved(self, context_text):
-        """Extract entities from context with improved prompt and more detail"""
-        if not self.openai_client:
-            return []
-        
-        try:
-            prompt = f"""
-Hãy trích xuất TẤT CẢ thực thể quan trọng từ văn bản tiếng Việt sau đây.
-
-QUY TẮC TRÍCH XUẤT:
-1. Chỉ lấy từ/cụm từ CÓ TRONG văn bản
-2. Giữ nguyên chính tả như trong văn bản
-3. Lấy cả từ đơn lẻ VÀ cụm từ có ý nghĩa
-
-LOẠI THỰC THỂ CẦN LẤY:
-✅ Tên người: "Nguyễn Văn A", "John Smith", "Einstein"
-✅ Tên tổ chức: "SAWACO", "Microsoft", "Đại học Stanford", "NASA"
-✅ Địa danh: "TP.HCM", "Việt Nam", "London", "Quận 1"
-✅ Sản phẩm/Công nghệ: "iPhone", "AI", "machine learning", "ChatGPT"
-✅ Ngày tháng/Số: "25-3", "2023", "85%", "15 triệu đồng"
-✅ Khái niệm khoa học: "nghiên cứu", "phát triển", "công nghệ", "khoa học"
-✅ Động vật/Sinh vật: "voi", "chim", "voi châu Phi", "động vật"
-✅ Tạp chí/Ấn phẩm: "Nature", "Science", "tạp chí"
-
-VÍ DỤ:
-INPUT: "Các nhà khoa học tại Đại học Stanford đã phát triển AI để nghiên cứu voi châu Phi"
-OUTPUT: ["nhà khoa học", "Đại học Stanford", "phát triển", "AI", "nghiên cứu", "voi châu Phi", "voi", "châu Phi"]
-
-QUAN TRỌNG: Trả về JSON array, không giải thích thêm.
-
-Văn bản:
-{context_text}
-"""
-
-            response = self.openai_client.chat.completions.create(
-                model=getattr(self, 'openai_model', 'gpt-4o-mini'),
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=1000  # Increase token limit
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            print(f"🔍 OpenAI raw response: {response_text[:200]}...")
-            
-            # Parse JSON
-            if response_text.startswith('```json'):
-                response_text = response_text[7:]
-            if response_text.startswith('```'):
-                response_text = response_text[3:]
-            if response_text.endswith('```'):
-                response_text = response_text[:-3]
-            response_text = response_text.strip()
-            
-            entities = json.loads(response_text)
-            if isinstance(entities, list):
-                entities = [e.strip() for e in entities if e.strip()]
-                print(f"📄 Improved context extraction: {len(entities)} entities")
-                return entities
-            else:
-                print(f"❌ Response not a list: {response_text}")
-                return []
-            
-        except json.JSONDecodeError as e:
-            print(f"❌ JSON parse error: {e}")
-            print(f"❌ Raw response: {response_text}")
-            return []
-        except Exception as e:
-            print(f"❌ Improved context extraction error: {e}")
-            return []
-
-    def extract_context_entities_simple(self, context_text):
-        """Extract entities from context with simpler prompt"""
-        if not self.openai_client:
-            return []
-        
-        try:
-            prompt = f"""
-Trích xuất tất cả thực thể quan trọng từ văn bản sau. Chỉ lấy những từ/cụm từ có trong văn bản.
-
-LOẠI THỰC THỂ CẦN LẤY:
-- Tên người: "Nguyễn Văn A", "John Smith"
-- Tên tổ chức/công ty: "SAWACO", "Microsoft", "Đại học Bách Khoa"
-- Địa danh: "TP.HCM", "Việt Nam", "Quận 1"
-- Sản phẩm/công nghệ: "iPhone", "AI", "ChatGPT"
-- Ngày tháng: "25-3", "2023", "tháng 6"
-- Số lượng có ý nghĩa: "15 triệu đồng", "69 tấn", "100 người"
-- Khái niệm quan trọng: "nghiên cứu", "khoa học", "phát triển"
-
-Trả về JSON array: ["entity1", "entity2", ...]
-
-Văn bản:
-{context_text}
-"""
-
-            response = self.openai_client.chat.completions.create(
-                model=getattr(self, 'openai_model', 'gpt-4o-mini'),
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=800
-            )
-            
-            response_text = response.choices[0].message.content.strip()
-            
-            # Parse JSON
-            if response_text.startswith('```json'):
-                response_text = response_text[7:]
-            if response_text.startswith('```'):
-                response_text = response_text[3:]
-            if response_text.endswith('```'):
-                response_text = response_text[:-3]
-            response_text = response_text.strip()
-            
-            entities = json.loads(response_text)
-            if isinstance(entities, list):
-                entities = [e.strip() for e in entities if e.strip()]
-                print(f"📄 Simple context extraction: {len(entities)} entities")
-                return entities
-            return []
-            
-        except Exception as e:
-            print(f"❌ Simple context extraction error: {e}")
-            return []
-
-    def get_global_entities(self):
-        """Get list of entities collected through multiple extraction attempts"""
-        return getattr(self, 'global_entities', [])
-
-    def add_to_global_entities(self, new_entities):
-        """Add new entities to global pool"""
-        if not hasattr(self, 'global_entities'):
-            self.global_entities = []
-        
-        added = 0
-        for entity in new_entities:
-            if entity not in self.global_entities:
-                self.global_entities.append(entity)
-                added += 1
-        
-        print(f"🌍 Added {added} new entities to global pool (total: {len(self.global_entities)})")
-        return added
-
-    def get_claim_entities(self):
-        """Get list of claim entities for boosting scoring"""
-        return getattr(self, 'claim_entities', set())
     
-    def get_sentences_connected_to_claim_entities(self):
-        """Get all sentences directly connected to claim entities"""
-        if not hasattr(self, 'claim_entities') or not self.claim_entities:
-            return []
-        
-        connected_sentences = set()
-        
-        # Iterate through all nodes in the graph to find entity nodes with text matching claim entities
-        for node_id, node_data in self.graph.nodes(data=True):
-            if node_data.get('type') == 'entity':
-                entity_text = node_data.get('text', '')
-                
-                # Check if entity text is in claim entities
-                if entity_text in self.claim_entities:
-                    # Get all neighbors of entity node
-                    for neighbor in self.graph.neighbors(node_id):
-                        # If neighbor is a sentence node
-                        if neighbor.startswith('sentence_'):
-                            sentence_text = self.graph.nodes[neighbor]['text']
-                            connected_sentences.add((neighbor, sentence_text))
-        
-        # Convert to list and sort by sentence index
-        result = list(connected_sentences)
-        result.sort(key=lambda x: int(x[0].split('_')[1]))  # Sort by sentence index
-        
-        print(f"🎯 Found {len(result)} sentences directly connected to claim entities")
-        return result
-    
-    def get_sentences_connected_to_claim_by_similarity(self):
-        """Get sentences directly connected to claim by text similarity"""
-        if not self.claim_node:
-            return []
-        
-        connected_sentences = []
-        
-        # Get all neighbors of claim node
-        for neighbor in self.graph.neighbors(self.claim_node):
-            if neighbor.startswith('sentence_'):
-                # Check if it's a text similarity connection
-                edge_data = self.graph.get_edge_data(neighbor, self.claim_node)
-                if edge_data and edge_data.get('relation') == 'text_similar':
-                    sentence_text = self.graph.nodes[neighbor]['text']
-                    similarity = edge_data.get('similarity', 0.0)
-                    connected_sentences.append((neighbor, sentence_text, similarity))
-        
-        # Sort by similarity score in descending order
-        connected_sentences.sort(key=lambda x: x[2], reverse=True)
-        
-        print(f"🔗 Found {len(connected_sentences)} sentences connected to claim by similarity")
-        return connected_sentences
-    
-    def get_high_confidence_evidence_sentences(self):
-        """Get sentences with high confidence: connected to claim entities + similarity to claim"""
-        entity_sentences = self.get_sentences_connected_to_claim_entities()
-        similarity_sentences = self.get_sentences_connected_to_claim_by_similarity()
-        
-        # Combine and remove duplicates
-        all_sentences = {}
-        
-        # Add entity-connected sentences with high priority
-        for sent_id, sent_text in entity_sentences:
-            all_sentences[sent_id] = {
-                'text': sent_text,
-                'connected_to_entities': True,
-                'similarity_score': 0.0,
-                'confidence': 'high'  # Entity connection = high confidence
-            }
-        
-        # Add similarity-connected sentences
-        for sent_id, sent_text, similarity in similarity_sentences:
-            if sent_id not in all_sentences:
-                all_sentences[sent_id] = {
-                    'text': sent_text,
-                    'connected_to_entities': False,
-                    'similarity_score': similarity,
-                    'confidence': 'medium' if similarity >= 0.25 else 'low'
-                }
-            else:
-                # Update existing with similarity score
-                all_sentences[sent_id]['similarity_score'] = similarity
-                all_sentences[sent_id]['confidence'] = 'very_high'  # Both entity + similarity
-        
-        # Convert to sorted list
-        result = []
-        for sent_id, data in all_sentences.items():
-            result.append({
-                'sentence_id': sent_id,
-                'text': data['text'],
-                'connected_to_entities': data['connected_to_entities'],
-                'similarity_score': data['similarity_score'],
-                'confidence': data['confidence']
-            })
-        
-        # Sort by confidence level then similarity
-        confidence_order = {'very_high': 4, 'high': 3, 'medium': 2, 'low': 1}
-        result.sort(key=lambda x: (confidence_order[x['confidence']], x['similarity_score']), reverse=True)
-        
-        print(f"✨ Found {len(result)} high-confidence evidence sentences")
-        return result 
 
+    

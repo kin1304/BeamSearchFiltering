@@ -33,7 +33,7 @@ except ImportError:
     SBERT_AVAILABLE = False
     print("⚠️ SBERT not available for semantic filtering")
 
-# Try to import HuggingFace transformers NLI model (XLM-R XNLI – hỗ trợ tiếng Việt)
+# Try to import HuggingFace transformers NLI model (XLM-R XNLI – supports Vietnamese)
 try:
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
     from transformers.pipelines import pipeline  # type: ignore
@@ -296,7 +296,7 @@ class AdvancedDataFilter:
             if subject_keywords:
                 lower_sentence = sentence_text.lower()
                 if not any(kw.lower() in lower_sentence for kw in subject_keywords):
-                    continue  # Bỏ câu không chứa chủ thể chính
+                    continue  # Skip sentences without main subject
 
             # Calculate relevance score
             relevance_score = self._calculate_semantic_relevance(sentence_text, claim_text)
